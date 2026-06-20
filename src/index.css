@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+/* ----------------------------------------------------
+   GLOBAL BASE STYLING (LIGHT & CRISP DEFAULT)
+   ---------------------------------------------------- */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #F8FAFC;
+  color: #0D1527;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optimize clear text rendering */
+p, span, label, input, select, textarea, button, td, th, h1, h2, h3, h4, h5, h6 {
+  text-rendering: optimizeLegibility;
+}
+
+/* Ensure secondary slate boxes stay crisp light gray in default light mode */
+.bg-slate-50, .bg-slate-100 {
+  background-color: #F1F5F9;
+  color: #1E293B;
+}
+
+/* ----------------------------------------------------
+   DARK MODE COMPREHENSIVE CONTRAST OVERRIDES
+   ---------------------------------------------------- */
+.dark {
+  color-scheme: dark;
+}
+
+/* Base Body & Layout Overrides */
+.dark body, 
+.dark #app_root_layout, 
+.dark #login_screen_view {
+  background-color: #030712 !important;
+  color: #F1F5F9 !important;
+}
+
+/* Background conversions in dark mode */
+.dark .bg-white {
+  background-color: #0F172A !important;
+  color: #F1F5F9 !important;
+}
+
+/* Handle light slate/gray card frames natively in dark mode to dark slate panels */
+.dark .bg-slate-50, 
+.dark .bg-slate-100, 
+.dark .bg-slate-150, 
+.dark .bg-slate-200, 
+.dark .bg-gray-50, 
+.dark .bg-gray-100,
+.dark .bg-slate-105 {
+  background-color: #1E293B !important;
+  color: #F1F5F9 !important;
+  border-color: #334155 !important;
+}
+
+/* Custom styles for tables in dark mode */
+.dark table {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+}
+
+.dark thead, 
+.dark thead tr {
+  background-color: #1E293B !important;
+  color: #F1F5F9 !important;
+}
+
+.dark tr {
+  border-bottom-color: #334155 !important;
+}
+
+.dark tr:hover {
+  background-color: #1E293B !important;
+}
+
+.dark td, 
+.dark th {
+  color: #F1F5F9 !important;
+  border-color: #334155 !important;
+}
+
+/* Map hover backgrounds safely in dark mode so hovered text remains readable */
+.dark .hover\:bg-slate-50:hover, 
+.dark .hover\:bg-slate-100:hover, 
+.dark .hover\:bg-slate-150:hover, 
+.dark .hover\:bg-slate-200:hover,
+.dark .hover\:bg-slate-100\/50:hover {
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+}
+
+/* Input boxes in dark mode */
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  border-color: #475569 !important;
+}
+
+.dark input::placeholder {
+  color: #94A3B8 !important;
+}
+
+.dark select option {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+}
+
+/* Border colors across components */
+.dark .border-slate-100, 
+.dark .border-slate-150, 
+.dark .border-slate-200, 
+.dark .border-slate-250, 
+.dark .border-gray-100, 
+.dark .border-gray-200,
+.dark .border-neutral-200 {
+  border-color: #334155 !important;
+}
+
+/* ----------------------------------------------------
+   COLORIZED STATUS BLOCK CONTRAST ENHANCERS (DARK MODE)
+   ---------------------------------------------------- */
+.dark .bg-violet-50, 
+.dark .bg-violet-100, 
+.dark .bg-violet-200,
+.dark .bg-indigo-50,
+.dark .bg-indigo-100,
+.dark .bg-indigo-200,
+.dark .bg-indigo-50\/70,
+.dark .bg-violet-50\/15 {
+  background-color: #1E1B4B !important;
+  color: #E0E7FF !important;
+  border-color: #3730A3 !important;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-100,
+.dark .bg-emerald-200,
+.dark .bg-emerald-500\/15 {
+  background-color: #022C22 !important;
+  color: #34D399 !important;
+  border-color: #064E3B !important;
+}
+
+.dark .bg-rose-50,
+.dark .bg-rose-100,
+.dark .bg-rose-200,
+.dark .bg-rose-500\/15 {
+  background-color: #450A0A !important;
+  color: #FCA5A5 !important;
+  border-color: #991B1B !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100,
+.dark .bg-amber-200,
+.dark .bg-amber-500\/15,
+.dark .bg-\[\#F59E0B\]\/5 {
+  background-color: #451A03 !important;
+  color: #FDE68A !important;
+  border-color: #78350F !important;
+}
+
+/* ----------------------------------------------------
+   TEXT CONTRAST CORRECTION FOR THE ENTIRE WORKSPACE
+   ---------------------------------------------------- */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #F8FAFC !important;
+}
+
+/* Catch all variations of hardcoded dark navy and slate text colors in dark mode */
+.dark .text-\[\#0B1330\],
+.dark .text-\[\#0b1330\],
+.dark .text-\[\#0F172A\],
+.dark .text-\[\#0f172a\],
+.dark [class*="text-[#0B1330]"],
+.dark [class*="text-[#0b1330]"],
+.dark [class*="text-[#0F172A]"],
+.dark [class*="text-[#0f172a]"],
+.dark [class*="text-slate-950"],
+.dark [class*="text-slate-900"],
+.dark [class*="text-slate-800"],
+.dark [class*="text-slate-700"] {
+  color: #F8FAFC !important;
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900, 
+.dark .text-slate-800,
+.dark .text-slate-705,
+.dark .text-slate-700, 
+.dark .text-slate-650,
+.dark .text-slate-600,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-\[\#0B1330\],
+.dark .text-\[\#0F172A\] {
+  color: #F8FAFC !important;
+}
+
+.dark .text-slate-500, 
+.dark .text-slate-400,
+.dark .text-slate-350,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #CBD5E1 !important;
+}
+
+/* Color accents and labels */
+.dark .text-violet-900,
+.dark .text-violet-950,
+.dark .text-\[\#8B5CF6\],
+.dark .text-\[\#7C3AED\],
+.dark .text-indigo-900,
+.dark .text-indigo-950,
+.dark .text-indigo-700,
+.dark .text-violet-700 {
+  color: #C4B5FD !important;
+}
+
+.dark .text-emerald-700,
+.dark .text-emerald-800,
+.dark .text-emerald-900 {
+  color: #34D399 !important;
+}
+
+.dark .text-rose-700,
+.dark .text-rose-800,
+.dark .text-rose-900 {
+  color: #FCA5A5 !important;
+}
+
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-amber-900 {
+  color: #FDE68A !important;
+}
+
+/* Toggle Hover fixes to avoid unreadable combos if hover inherits standard light-mode text colors */
+.dark .hover\:text-slate-950:hover,
+.dark .hover\:text-slate-900:hover,
+.dark .hover\:text-slate-800:hover,
+.dark .hover\:text-violet-950:hover,
+.dark .hover\:text-violet-900:hover,
+.dark .hover\:text-indigo-950:hover {
+  color: #FFFFFF !important;
+}
+
+/* Inner branding graphics */
+.dark .bg-\[\#8B5CF6\]\/10,
+.dark .bg-\[\#8B5CF6\]\/15,
+.dark .bg-\[\#8B5CF6\]\/5 {
+  background-color: #2E1065 !important;
+}
+
+/* Animations block */
+@keyframes letter-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-letter-bounce {
+  animation: letter-bounce 1.2s ease-in-out infinite;
+  display: inline-block;
+}

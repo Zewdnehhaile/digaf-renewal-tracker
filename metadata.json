@@ -1,0 +1,6 @@
+{
+  "name": "Digaf Renewal Tracker",
+  "description": "Real-time horizontal workflow board and auditing tracker for credit renewal officers at Digaf MFI.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

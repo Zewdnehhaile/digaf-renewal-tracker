@@ -1,0 +1,313 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper to validate IDs (supports alphanumeric, hyphen, underscore, plus sign, spaces, dots, and common email chars)
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_+\\s.@-]+$');
+    }
+
+    // Helper to validate Status enums
+    function isValidStatus(status) {
+      return status == 'Renewal Processing' ||
+             status == 'Paid' ||
+             status == 'No Response' ||
+             status == 'Completed' ||
+             status == 'Waiting' ||
+             status == 'Rejected';
+    }
+
+    // Customer validation blueprint (soft size check to allow custom extensions)
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['id', 'name', 'phoneNumber', 'status', 'addedBy', 'addedDate', 'updatedDate']) &&
+             data.keys().size() <= 15 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 25 &&
+             isValidStatus(data.status) &&
+             data.addedBy is string && data.addedBy.size() <= 100 &&
+             data.addedDate is string && data.addedDate.size() <= 50 &&
+             data.updatedDate is string && data.updatedDate.size() <= 50 &&
+             (!data.keys().hasAny(['updatedBy']) || (data.updatedBy is string && data.updatedBy.size() <= 100)) &&
+             (!data.keys().hasAny(['followUpDate']) || (data.followUpDate is string && data.followUpDate.size() <= 50)) &&
+             (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    // Activity Log validation blueprint (flexible for system message logs and longer names/dates)
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['id', 'customerName', 'previousStatus', 'newStatus', 'updatedBy', 'timestamp']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.customerName is string && data.customerName.size() <= 150 &&
+             data.previousStatus is string && data.previousStatus.size() <= 150 &&
+             data.newStatus is string && data.newStatus.size() <= 150 &&
+             data.updatedBy is string && data.updatedBy.size() <= 1000 &&
+             data.timestamp is string && data.timestamp.size() <= 100;
+    }
+
+    // User validation blueprint (supports system roles and email authentication links)
+    function isValidUser(data) {
+      return data.keys().hasAll(['phoneNumber', 'fullName', 'status', 'role']) &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             (data.status == 'active' || data.status == 'deactive') &&
+             (data.role == 'super_admin' || data.role == 'admin' || data.role == 'employee') &&
+             (!data.keys().hasAny(['passwordHash']) || (data.passwordHash is string && data.passwordHash.size() <= 128)) &&
+             (!data.keys().hasAny(['createdAt']) || (data.createdAt is string && data.createdAt.size() <= 100)) &&
+             (!data.keys().hasAny(['customRole']) || (data.customRole is string && data.customRole.size() <= 150)) &&
+             (!data.keys().hasAny(['businessRole']) || (data.businessRole is string && data.businessRole.size() <= 200)) &&
+             (!data.keys().hasAny(['workspace']) || (data.workspace == 'first_round' || data.workspace == 'second_round' || data.workspace == 'both')) &&
+             (!data.keys().hasAny(['hasRenewalTrackerAccess']) || data.hasRenewalTrackerAccess is bool) &&
+             (!data.keys().hasAny(['deviceSignature']) || (data.deviceSignature is string && data.deviceSignature.size() <= 300)) &&
+             (!data.keys().hasAny(['deviceRegistrationDate']) || (data.deviceRegistrationDate is string && data.deviceRegistrationDate.size() <= 100)) &&
+             (!data.keys().hasAny(['deviceApproved']) || data.deviceApproved is bool) &&
+             (!data.keys().hasAny(['deviceInfo']) || (data.deviceInfo is string && data.deviceInfo.size() <= 300)) &&
+             (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 150));
+    }
+
+    // AIConfig validation blueprint (fields are optional so partial/merges succeed seamlessly, types guaranteed)
+    function isValidAIConfig(data) {
+      return data.keys().hasAll(['id']) &&
+             data.id == 'global_config' &&
+             (!data.keys().hasAny(['featuresEnabled']) || data.featuresEnabled is bool) &&
+             (!data.keys().hasAny(['customerBriefEnabled']) || data.customerBriefEnabled is bool) &&
+             (!data.keys().hasAny(['dailyExecutiveReportEnabled']) || data.dailyExecutiveReportEnabled is bool) &&
+             (!data.keys().hasAny(['stuckCaseDetectorEnabled']) || data.stuckCaseDetectorEnabled is bool) &&
+             (!data.keys().hasAny(['followUpRecommendationEnabled']) || data.followUpRecommendationEnabled is bool) &&
+             (!data.keys().hasAny(['officerPerformanceEnabled']) || data.officerPerformanceEnabled is bool) &&
+             (!data.keys().hasAny(['priorityQueueEnabled']) || data.priorityQueueEnabled is bool) &&
+             (!data.keys().hasAny(['aiReportSummarizationEnabled']) || data.aiReportSummarizationEnabled is bool) &&
+             (!data.keys().hasAny(['imageGenerationEnabled']) || data.imageGenerationEnabled is bool) &&
+             (!data.keys().hasAny(['assistantPanelEnabled']) || data.assistantPanelEnabled is bool) &&
+             (!data.keys().hasAny(['stuckDaysThreshold']) || data.stuckDaysThreshold is int || data.stuckDaysThreshold is float);
+    }
+
+    // OfficerAIPermission validation blueprint (fields are optional, types guaranteed)
+    function isValidOfficerAIPermission(data) {
+      return data.keys().hasAll(['phoneNumber', 'fullName']) &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             (!data.keys().hasAny(['customerBriefAllowed']) || data.customerBriefAllowed is bool) &&
+             (!data.keys().hasAny(['imageGenerationAllowed']) || data.imageGenerationAllowed is bool) &&
+             (!data.keys().hasAny(['assistantPanelAllowed']) || data.assistantPanelAllowed is bool) &&
+             (!data.keys().hasAny(['aiReportsAllowed']) || data.aiReportsAllowed is bool);
+    }
+
+    // AIUsageLog validation blueprint
+    function isValidAIUsageLog(data) {
+      return data.keys().hasAll(['id', 'username', 'phoneNumber', 'feature', 'action', 'timestamp']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.username is string && data.username.size() > 0 && data.username.size() <= 100 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.feature is string && data.feature.size() <= 100 &&
+             data.action is string && data.action.size() > 0 && data.action.size() <= 2000 &&
+             data.timestamp is string && data.timestamp.size() <= 50;
+    }
+
+    // AttendanceRecord validation blueprint
+    function isValidAttendanceRecord(data) {
+      return data.keys().hasAll(['id', 'employeeName', 'employeeRole', 'phoneNumber', 'date', 'time', 'attendanceType', 'status']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.employeeName is string && data.employeeName.size() <= 100 &&
+             data.employeeRole is string && data.employeeRole.size() <= 100 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.date is string && data.date.size() <= 20 &&
+             data.time is string && data.time.size() <= 20 &&
+             (data.attendanceType == 'Morning' || data.attendanceType == 'Afternoon') &&
+             data.status is string && data.status.size() <= 100 &&
+             (!data.keys().hasAny(['deviceInformation']) || (data.deviceInformation is string && data.deviceInformation.size() <= 300)) &&
+             (!data.keys().hasAny(['gpsCoordinates']) || data.gpsCoordinates is map);
+    }
+
+    // AttendanceSettings validation blueprint
+    function isValidAttendanceSettings(data) {
+      return data.keys().hasAll(['id', 'latitude', 'longitude', 'radius', 'updatedBy', 'updatedAt']) &&
+             data.id == 'office_config' &&
+             (data.latitude is float || data.latitude is int) &&
+             (data.longitude is float || data.longitude is int) &&
+             (data.radius is float || data.radius is int) &&
+             data.updatedBy is string && data.updatedBy.size() <= 100 &&
+             data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    // LeaveRequest validation blueprint
+    function isValidLeaveRequest(data) {
+      return data.keys().hasAll(['id', 'employeeName', 'phoneNumber', 'employeeRole', 'type', 'date', 'reason', 'status', 'timestamp']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.employeeName is string && data.employeeName.size() <= 100 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.employeeRole is string && data.employeeRole.size() <= 100 &&
+             (data.type == 'Permission' || data.type == 'Emergency Leave' || data.type == 'Field Work') &&
+             data.date is string && data.date.size() <= 20 &&
+             data.reason is string && data.reason.size() <= 1000 &&
+             (data.status == 'Pending' || data.status == 'Approved' || data.status == 'Rejected') &&
+             data.timestamp is string && data.timestamp.size() <= 50 &&
+             (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!data.keys().hasAny(['destination']) || (data.destination is string && data.destination.size() <= 200)) &&
+             (!data.keys().hasAny(['expectedReturnTime']) || (data.expectedReturnTime is string && data.expectedReturnTime.size() <= 100)) &&
+             (!data.keys().hasAny(['reviewedBy']) || (data.reviewedBy is string && data.reviewedBy.size() <= 100));
+    }
+
+    // AttendanceException validation blueprint
+    function isValidAttendanceException(data) {
+      return data.keys().hasAll(['id']) &&
+             data.keys().size() <= 12 &&
+             data.id is string && data.id.size() <= 128 &&
+             (!data.keys().hasAny(['date']) || (data.date is string && data.date.size() <= 64)) &&
+             (!data.keys().hasAny(['employeeName']) || (data.employeeName is string && data.employeeName.size() <= 200)) &&
+             (!data.keys().hasAny(['employeePhone']) || (data.employeePhone is string && data.employeePhone.size() <= 64)) &&
+             (!data.keys().hasAny(['employeeRole']) || (data.employeeRole is string && data.employeeRole.size() <= 150)) &&
+             (!data.keys().hasAny(['device']) || (data.device is string && data.device.size() <= 1000)) &&
+             (!data.keys().hasAny(['location']) || (data.location is string && data.location.size() <= 1000)) &&
+             (!data.keys().hasAny(['exceptionType']) || (data.exceptionType is string && data.exceptionType.size() <= 200)) &&
+             (!data.keys().hasAny(['actionTaken']) || (data.actionTaken is string && data.actionTaken.size() <= 2000)) &&
+             (!data.keys().hasAny(['timestamp']) || (data.timestamp is string && data.timestamp.size() <= 150));
+    }
+
+    // AttendanceCorrectionRequest validation blueprint
+    function isValidAttendanceCorrection(data) {
+      return data.keys().hasAll(['id', 'employeeName', 'employeePhone', 'date', 'reason', 'requestedBy', 'requestedAt', 'status']) &&
+             data.keys().size() <= 11 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.employeeName is string && data.employeeName.size() <= 100 &&
+             data.employeePhone is string && data.employeePhone.size() <= 40 &&
+             data.date is string && data.date.size() <= 30 &&
+             data.reason is string && data.reason.size() <= 1000 &&
+             data.requestedBy is string && data.requestedBy.size() <= 100 &&
+             data.requestedAt is string && data.requestedAt.size() <= 100 &&
+             (data.status == 'Pending' || data.status == 'Approved' || data.status == 'Rejected') &&
+             (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!data.keys().hasAny(['approvedBy']) || (data.approvedBy is string && data.approvedBy.size() <= 100)) &&
+             (!data.keys().hasAny(['approvedDate']) || (data.approvedDate is string && data.approvedDate.size() <= 100));
+    }
+
+    // ChatMessage validation helper
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['id', 'sender', 'receiver', 'workspace', 'content', 'createdAt', 'read']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.sender is string && data.sender.size() <= 100 &&
+             data.receiver is string && data.receiver.size() <= 100 &&
+             data.workspace is string && data.workspace.size() <= 100 &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.createdAt is string && data.createdAt.size() <= 100 &&
+             data.read is bool;
+    }
+
+    // Matches for users
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Matches for customers
+    match /customers/{customerId} {
+      allow read: if true;
+      allow create: if isValidId(customerId) && isValidCustomer(request.resource.data);
+      allow update: if isValidId(customerId) && isValidCustomer(request.resource.data);
+      allow delete: if isValidId(customerId);
+    }
+
+    // Matches for activity_logs
+    match /activity_logs/{logId} {
+      allow read: if true;
+      allow create: if isValidId(logId) && isValidActivityLog(request.resource.data);
+      allow update: if false; // Audit logs are append-only as design constraint
+      allow delete: if isValidId(logId); // Allowed for seed purges and resetting database
+    }
+
+    // Matches for ai_config
+    match /ai_config/{configId} {
+      allow read: if true;
+      allow create, update: if isValidId(configId) && configId == 'global_config' && isValidAIConfig(request.resource.data);
+      allow delete: if false;
+    }
+
+    // Matches for officer_permissions
+    match /officer_permissions/{permissionId} {
+      allow read: if true;
+      allow create, update: if isValidId(permissionId) && isValidOfficerAIPermission(request.resource.data);
+      allow delete: if isValidId(permissionId);
+    }
+
+    // Matches for ai_usage_logs
+    match /ai_usage_logs/{logId} {
+      allow read: if true;
+      allow create: if isValidId(logId) && isValidAIUsageLog(request.resource.data);
+      allow update: if false; // Immutable audit logs
+      allow delete: if isValidId(logId);
+    }
+
+    // Matches for attendance_records
+    match /attendance_records/{recordId} {
+      allow read: if true;
+      allow create, update: if isValidId(recordId) && isValidAttendanceRecord(request.resource.data);
+      allow delete: if isValidId(recordId);
+    }
+
+    // Matches for attendance_settings
+    match /attendance_settings/{settingsId} {
+      allow read: if true;
+      allow create, update: if isValidId(settingsId) && isValidAttendanceSettings(request.resource.data);
+      allow delete: if false;
+    }
+
+    // Matches for leave_requests
+    match /leave_requests/{requestId} {
+      allow read: if true;
+      allow create, update: if isValidId(requestId) && isValidLeaveRequest(request.resource.data);
+      allow delete: if isValidId(requestId);
+    }
+
+    // Matches for attendance_exceptions
+    match /attendance_exceptions/{exceptionId} {
+      allow read: if true;
+      allow create: if isValidId(exceptionId) && isValidAttendanceException(request.resource.data);
+      allow update: if false; // Immutable audit exception logs
+      allow delete: if isValidId(exceptionId);
+    }
+
+    // Matches for attendance_corrections
+    match /attendance_corrections/{requestId} {
+      allow read: if true;
+      allow create: if isValidId(requestId) && isValidAttendanceCorrection(request.resource.data);
+      allow update: if isValidId(requestId) && isValidAttendanceCorrection(request.resource.data);
+      allow delete: if isValidId(requestId);
+    }
+
+    // Matches for test_connection
+    match /test_connection/{id} {
+      allow read: if true; // Allowed for startup connection test checks
+    }
+
+    // Matches for work_assignments
+    match /work_assignments/{assignmentId} {
+      allow read: if true;
+      allow create, update: if isValidId(assignmentId);
+      allow delete: if isValidId(assignmentId);
+    }
+
+    // Matches for system_errors
+    match /system_errors/{errorId} {
+      allow read: if true;
+      allow create: if isValidId(errorId);
+      allow delete: if true;
+    }
+
+    // Matches for backups
+    match /backups/{backupId} {
+      allow read: if true;
+      allow create: if isValidId(backupId);
+      allow update, delete: if true;
+    }
+
+    // Matches for chats
+    match /chats/{chatId} {
+      allow read: if true;
+      allow create: if isValidId(chatId) && isValidChatMessage(request.resource.data);
+      allow update: if isValidId(chatId) && isValidChatMessage(request.resource.data);
+      allow delete: if isValidId(chatId);
+    }
+  }
+}

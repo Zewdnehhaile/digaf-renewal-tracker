@@ -1,0 +1,261 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "Represents a customer due for credit renewal tracker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["Renewal Processing", "Paid", "Waiting", "No Response", "Completed", "Rejected"] },
+        "addedBy": { "type": "string" },
+        "addedDate": { "type": "string" },
+        "updatedDate": { "type": "string" },
+        "followUpDate": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "phoneNumber", "status", "addedBy", "addedDate", "updatedDate"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Tracks status and metadata updates for audit logging.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "previousStatus": { "type": "string" },
+        "newStatus": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "customerName", "previousStatus", "newStatus", "updatedBy", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Represents web app login users.",
+      "type": "object",
+      "properties": {
+        "phoneNumber": { "type": "string" },
+        "fullName": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "deactive"] },
+        "role": { "type": "string", "enum": ["admin", "officer"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["phoneNumber", "fullName", "passwordHash", "status", "role", "createdAt"]
+    },
+    "AIConfig": {
+      "title": "AIConfig",
+      "description": "Global settings for AI feature toggles and parameters.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "featuresEnabled": { "type": "boolean" },
+        "customerBriefEnabled": { "type": "boolean" },
+        "dailyExecutiveReportEnabled": { "type": "boolean" },
+        "stuckCaseDetectorEnabled": { "type": "boolean" },
+        "followUpRecommendationEnabled": { "type": "boolean" },
+        "officerPerformanceEnabled": { "type": "boolean" },
+        "priorityQueueEnabled": { "type": "boolean" },
+        "aiReportSummarizationEnabled": { "type": "boolean" },
+        "imageGenerationEnabled": { "type": "boolean" },
+        "assistantPanelEnabled": { "type": "boolean" },
+        "stuckDaysThreshold": { "type": "number" }
+      },
+      "required": [
+        "id",
+        "featuresEnabled",
+        "customerBriefEnabled",
+        "dailyExecutiveReportEnabled",
+        "stuckCaseDetectorEnabled",
+        "followUpRecommendationEnabled",
+        "officerPerformanceEnabled",
+        "priorityQueueEnabled",
+        "aiReportSummarizationEnabled",
+        "imageGenerationEnabled",
+        "assistantPanelEnabled",
+        "stuckDaysThreshold"
+      ]
+    },
+    "OfficerAIPermission": {
+      "title": "OfficerAIPermission",
+      "description": "Granular AI capabilities authorized per credit officer.",
+      "type": "object",
+      "properties": {
+        "phoneNumber": { "type": "string" },
+        "fullName": { "type": "string" },
+        "customerBriefAllowed": { "type": "boolean" },
+        "imageGenerationAllowed": { "type": "boolean" },
+        "assistantPanelAllowed": { "type": "boolean" },
+        "aiReportsAllowed": { "type": "boolean" }
+      },
+      "required": ["phoneNumber", "fullName", "customerBriefAllowed", "imageGenerationAllowed", "assistantPanelAllowed", "aiReportsAllowed"]
+    },
+    "AIUsageLog": {
+      "title": "AIUsageLog",
+      "description": "Security auditing logs tracking generative AI invocations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "feature": { "type": "string" },
+        "action": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "username", "phoneNumber", "feature", "action", "timestamp"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Stores employee check-in details with GPS and status context.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "employeeRole": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "attendanceType": { "type": "string", "enum": ["Morning", "Afternoon"] },
+        "deviceInformation": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "employeeName", "employeeRole", "phoneNumber", "date", "time", "attendanceType", "status"]
+    },
+    "AttendanceSettings": {
+      "title": "AttendanceSettings",
+      "description": "Configures office location GPS coordinates and allowance threshold radius.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "radius": { "type": "number" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "latitude", "longitude", "radius", "updatedBy", "updatedAt"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Permission, emergency leave, and field work applications submitted for approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "employeeRole": { "type": "string" },
+        "type": { "type": "string", "enum": ["Permission", "Emergency Leave", "Field Work"] },
+        "date": { "type": "string" },
+        "reason": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "employeeName", "phoneNumber", "employeeRole", "type", "date", "reason", "status", "timestamp"]
+    },
+    "AttendanceException": {
+      "title": "AttendanceException",
+      "description": "Critical security audit traces tracking GPS/timestamp anomalies, unauthorized devices, and other non-compliant attempts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "employeePhone": { "type": "string" },
+        "employeeRole": { "type": "string" },
+        "device": { "type": "string" },
+        "location": { "type": "string" },
+        "exceptionType": { "type": "string" },
+        "actionTaken": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "date", "employeeName", "employeePhone", "employeeRole", "device", "location", "exceptionType", "actionTaken", "timestamp"]
+    },
+    "AttendanceCorrectionRequest": {
+      "title": "AttendanceCorrectionRequest",
+      "description": "Manual attendance correction requests submitted by credit officers for administrator review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "employeePhone": { "type": "string" },
+        "date": { "type": "string" },
+        "reason": { "type": "string" },
+        "requestedBy": { "type": "string" },
+        "requestedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "notes": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "approvedDate": { "type": "string" }
+      },
+      "required": ["id", "employeeName", "employeePhone", "date", "reason", "requestedBy", "requestedAt", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Represents an internal message with read/unread flags and workspace partition.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string" },
+        "receiver": { "type": "string" },
+        "workspace": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "sender", "receiver", "workspace", "content", "createdAt", "read"]
+    }
+  },
+  "firestore": {
+    "customers": {
+      "schema": "Customer",
+      "description": "A collection containing all credit renewal customer records."
+    },
+    "activity_logs": {
+      "schema": "ActivityLog",
+      "description": "A collection capturing historic changes for auditing purposes."
+    },
+    "users": {
+      "schema": "User",
+      "description": "A collection of users allowed to access the system."
+    },
+    "ai_config": {
+      "schema": "AIConfig",
+      "description": "Stores global artificial intelligence behavior settings."
+    },
+    "officer_permissions": {
+      "schema": "OfficerAIPermission",
+      "description": "Lists custom feature enablement grants for officers."
+    },
+    "ai_usage_logs": {
+      "schema": "AIUsageLog",
+      "description": "Audit trails of staff interacting with AI nodes."
+    },
+    "attendance_records": {
+      "schema": "AttendanceRecord",
+      "description": "History logs tracking morning/afternoon employee clock-ins."
+    },
+    "attendance_settings": {
+      "schema": "AttendanceSettings",
+      "description": "Singleton configuration holding latitude/longitude rules for office scans."
+    },
+    "leave_requests": {
+      "schema": "LeaveRequest",
+      "description": "Registry tracking submittals for permissions or emergency leaves."
+    },
+    "attendance_exceptions": {
+      "schema": "AttendanceException",
+      "description": "Critical security exception log for non-compliant clock-in notifications."
+    },
+    "attendance_corrections": {
+      "schema": "AttendanceCorrectionRequest",
+      "description": "User requests for backdated or manual attendance adjustments."
+    },
+    "chats": {
+      "schema": "ChatMessage",
+      "description": "Private direct messages between internal workspace employees."
+    }
+  }
+}
