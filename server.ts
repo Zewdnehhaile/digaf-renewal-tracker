@@ -1,11 +1,16 @@
+import 'dotenv/config';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-
+import { connectDB, getDB } from "./src/services/mongodb.js";
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
+
+  // Connect to MongoDB
+  await connectDB();
+  const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
 
@@ -17,7 +22,6 @@ async function startServer() {
       if (!apiKey) {
         throw new Error("GEMINI_API_KEY environment variable is required but missing. Please supply it via Settings.");
       }
-      // aistudio-build header logic is auto-injected by the SDK / platform
       aiClient = new GoogleGenAI({ apiKey });
     }
     return aiClient;
@@ -28,7 +32,6 @@ async function startServer() {
     if (!rawText) return {};
     let cleaned = rawText.trim();
 
-    // Strip Markdown code fence blocks
     if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```(json)?/i, "").trim();
     }
@@ -36,8 +39,6 @@ async function startServer() {
       cleaned = cleaned.replace(/```$/, "").trim();
     }
 
-    // Basic cleaning of trailing commas inside objects/arrays
-    // e.g., [1, 2, ] -> [1, 2] or { "a": 1, } -> { "a": 1 }
     cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
 
     try {
@@ -45,7 +46,6 @@ async function startServer() {
     } catch (err) {
       console.warn("[JSON Parse Warning] Standard JSON parse failed, trying regex extraction. Text:", cleaned);
       
-      // Fallback: Find the first '{' and last '}'
       const bIndex = cleaned.indexOf("{");
       const eIndex = cleaned.lastIndexOf("}");
       if (bIndex !== -1 && eIndex !== -1 && eIndex > bIndex) {
@@ -82,7 +82,6 @@ async function startServer() {
       const ai = getAI();
       
       const langInst = getLanguageInstruction(language, true);
-      // Slice logs down to most recent 15 entries for massive latency reduction and preventing token bloat
       const slicedLogs = Array.isArray(logs) ? logs.slice(0, 15) : [];
 
       const prompt = `
@@ -252,7 +251,6 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
 
       const isZewdneh = !!(currentUser?.fullName?.toLowerCase().includes('zewd') || currentUser?.phoneNumber?.toLowerCase().includes('zewd') || currentUser?.role === 'admin');
 
-      // Build previous turn history context to remember the last talk
       let historyContext = "";
       if (Array.isArray(history) && history.length > 0) {
         historyContext = "=== RECENT CONVERSATION HISTORY ===\n" + 
@@ -414,7 +412,6 @@ ${langInst}
     }
   });
 
-
   // API Route: AI Selfie Verification
   app.post("/api/ai/verify-selfie", async (req, res) => {
     try {
@@ -440,15 +437,15 @@ CRITICAL INSTRUCTIONS FOR MAXIMUM LENIENCY:
 
 Format your response strictly as a JSON object with this schema:
 {
-  "faceCount": 1, // exact integer count of human faces in Image 1
-  "qualityStatus": "PASS" | "FAIL", // PASS if face is visible under lenient conditions, FAIL only on 100% blacked-out/blocked lens or multi-person frames
+  "faceCount": 1,
+  "qualityStatus": "PASS" | "FAIL",
   "qualityReason": "Clear, lenient explanation of face presence (under 120 characters)",
-  "faceVisible": true, // boolean, true if a face is visible
-  "isBlackOrWhiteImage": false, // boolean
-  "isBlurry": false, // boolean
-  "matchScore": 95, // integer similarity score between 0 and 100. Default 100 if no second image.
-  "matchPassed": true, // boolean, default true unless it is a completely obvious different person.
-  "passed": true // true ONLY if faceCount is 1 AND qualityStatus is "PASS" AND matchPassed is true
+  "faceVisible": true,
+  "isBlackOrWhiteImage": false,
+  "isBlurry": false,
+  "matchScore": 95,
+  "matchPassed": true,
+  "passed": true
 }
 
 Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything.
@@ -456,7 +453,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
 
       const contentsList: any[] = [promptText];
       
-      // Live selfie
       contentsList.push({
         inlineData: {
           mimeType: "image/jpeg",
@@ -464,7 +460,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
         }
       });
 
-      // Optional reference face image
       if (referenceImage) {
         const cleanedRef = referenceImage.replace(/^data:image\/\w+;base64,/, "");
         contentsList.push({
@@ -502,7 +497,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
       res.json(parsed);
     } catch (err: any) {
       console.warn("AI Selfie Verification standard fallback activated due to temporary model availability limit:", err.message || err);
-      // Resilient fallback
       res.json({
         faceCount: 1,
         qualityStatus: "PASS",
@@ -516,7 +510,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
       });
     }
   });
-
 
   // API Route: AI Image Generation
   app.post("/api/ai/generate-image", async (req, res) => {
@@ -581,7 +574,6 @@ Design rules:
           svgText = svgText.replace(/```$/, "").trim();
         }
 
-        // Validate that we have some svg content
         if (!svgText.includes("<svg") || !svgText.includes("</svg>")) {
           svgText = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
             <defs>
@@ -677,7 +669,6 @@ ${langInst}
           }
         ];
       } else {
-        // Fallback for default document analysis (the preloaded sample)
         contents = [promptText + "\n[System Note: Since no new custom image base64 was sent, analyze the primary sample contract representing Birtukan Assefa signed on 27/09/2018 with principal 7000 ETB, service fee 500, phone 0586248521, and empty 1.2 due date fields. Compute and auto-fill that the due date is 27/10/2018 in your response. Also return agreementDateConfidence: 0.94 and payDateConfidence: 0.98.]"];
       }
 
@@ -690,7 +681,6 @@ ${langInst}
       res.json(parsed);
     } catch (err: any) {
       console.error("AI Contract Audit Error:", err);
-      // Resilient fallback JSON so the UI doesn't crash even if Gemini times out or is restricted
       res.json({
         borrowerName: "ብርቱካን አሰፋ",
         phoneNumber: "0586248521",
@@ -714,7 +704,7 @@ ${langInst}
     }
   });
 
-  // API Route: AI-powered prompt contract re-editor (Gap & Service Fee edit agent)
+  // API Route: AI-powered prompt contract re-editor
   app.post("/api/ai/edit-contract-via-prompt", async (req, res) => {
     try {
       const { userPrompt, language, currentState } = req.body;
@@ -808,7 +798,6 @@ ${langInst}
     });
     app.use(vite.middlewares);
 
-    // Fallback SPA index.html handler for development mode to support paths like /attendance-display
     app.get("*", async (req, res, next) => {
       if (req.path.startsWith("/api") || req.path.includes(".")) {
         return next();
