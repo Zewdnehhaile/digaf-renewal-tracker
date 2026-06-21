@@ -1,5 +1,5 @@
 // src/services/db.ts
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://digaf-api.onrender.com/api';
 
 const toArray = (docs: any[]) => docs.map((doc: any) => ({ id: doc._id || doc.id, ...doc }));
 
