@@ -123,8 +123,10 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
       }
 
       // Check password - plain text comparison
-      const isPasswordValid = user.password === password;
-
+const enteredHash = await hashPassword(password);
+const isPasswordValid = user.password === password || 
+                        user.passwordHash === enteredHash || 
+                        user.passwordHash === password;
       if (!isPasswordValid) {
         setError(t('Incorrect password.'));
         setLoading(false);
