@@ -1158,34 +1158,30 @@ ${langInst}
   });
 
   // Vite Middleware Mode for Dev vs Static for Production
+   // Vite Middleware Mode for Dev vs Static for Production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-
-    app.get("*", async (req, res, next) => {
-      if (req.path.startsWith("/api") || req.path.includes(".")) {
-        return next();
-      }
-      try {
-        const fs = await import("fs");
-        const htmlPath = path.join(process.cwd(), "index.html");
-        let html = fs.readFileSync(htmlPath, "utf-8");
-        html = await vite.transformIndexHtml(req.url, html);
-        res.status(200).set({ "Content-Type": "text/html" }).end(html);
-      } catch (err) {
-        next(err);
-      }
-    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
+
+  // This must come AFTER API routes but BEFORE static files
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "API endpoint not found" });
+    }
+    if (process.env.NODE_ENV === "production") {
+      res.sendFile(path.join(process.cwd(), "dist", "index.html"));
+    } else {
+      // For development, Vite handles this
+      res.sendFile(path.join(process.cwd(), "index.html"));
+    }
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[Digaf Server] Running full-stack on port ${PORT}`);
