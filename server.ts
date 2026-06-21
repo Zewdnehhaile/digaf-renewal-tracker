@@ -40,11 +40,14 @@ async function startServer() {
 
   app.use(express.json({ limit: "15mb" }));
   app.use(cors({
-  origin: ['https://digaf-connection-channel.vercel.app', 'http://localhost:3000'],
+  origin: ['https://digaf-connection-channel.vercel.app', 'http://localhost:3000', 'https://digaf-api.onrender.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
+app.options('*', cors());
+
   // ==================== MONGODB API ROUTES ====================
 
   // --- USERS ---
