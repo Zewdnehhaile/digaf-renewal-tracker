@@ -4,6 +4,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { MongoClient } from 'mongodb';
 import { GoogleGenAI, Type } from "@google/genai";
+import cors from 'cors';
 const MONGODB_URI =
   "mongodb://Digaf_MFI:erCb6Ucnq5pNBS3K@ac-nkqt4y6-shard-00-00.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-01.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-02.yiz1p7x.mongodb.net:27017/?ssl=true&replicaSet=atlas-fqjsli-shard-0&authSource=admin&retryWrites=true&w=majority";
 
@@ -38,6 +39,12 @@ async function startServer() {
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
+  app.use(cors({
+  origin: ['https://digaf-connection-channel.vercel.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
   // ==================== MONGODB API ROUTES ====================
 
   // --- USERS ---
