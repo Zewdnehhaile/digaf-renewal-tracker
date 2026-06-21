@@ -4,6 +4,7 @@ import { dbService } from '../services/db';
 import { soundService } from '../services/sound';
 import AttendanceExceptionsView from './AttendanceExceptionsView';
 import { verifyClockSynchronization, logSecurityAnomaly } from '../utils/security';
+import { hashPassword } from '../utils/security';
 import { 
   Clock, 
   MapPin, 
@@ -146,6 +147,23 @@ const isExcludedUser = (fullName: string, phoneNumber: string) => {
   if (excludedPhones.has(phoneClean)) return true;
   if (excludedNames.some(name => lowerName.includes(name))) return true;
   return false;
+};
+// Add this function to AttendanceModule.tsx
+const migrateUserPasswords = async () => {
+  try {
+    const allUsers = await dbService.getAllUsers();
+    for (const user of allUsers) {
+      if (!user.passwordHash && user.password) {
+        const hashed = await hashPassword(user.password);
+        await dbService.updateUser(user.phoneNumber, {
+          passwordHash: hashed
+        });
+      }
+    }
+    console.log('Password migration completed');
+  } catch (err) {
+    console.error('Password migration failed:', err);
+  }
 };
 
 export interface EATInfo {
@@ -1166,52 +1184,65 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
   };
 
   // Profile password change
-  const handleProfilePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileSuccess('');
-    setProfileError('');
+ // In AttendanceModule.tsx, find the handleProfilePasswordChange function
+// Replace the verification section (around lines 893-903)
 
-    if (!profileCurrentPassword || !profileNewPassword || !profileConfirmPassword) {
-      setProfileError('Please fill in all security credential inputs.');
+const handleProfilePasswordChange = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setProfileSuccess('');
+  setProfileError('');
+
+  if (!profileCurrentPassword || !profileNewPassword || !profileConfirmPassword) {
+    setProfileError('Please fill in all security credential inputs.');
+    return;
+  }
+
+  if (profileNewPassword !== profileConfirmPassword) {
+    setProfileError('Confirmation password does not match.');
+    return;
+  }
+
+  if (profileNewPassword.length < 4) {
+    setProfileError('New password must be at least 4 characters long.');
+    return;
+  }
+
+  try {
+    const userObj = await dbService.getUser(currentUser.phoneNumber);
+    if (!userObj) {
+      setProfileError('Profile record not verified in database.');
       return;
     }
 
-    if (profileNewPassword !== profileConfirmPassword) {
-      setProfileError('Confirmation password does not match.');
+    // --- FIX: Proper password verification ---
+    // Check if the current password matches either stored password or passwordHash
+    const isCurrentPasswordValid = 
+      userObj.password === profileCurrentPassword || 
+      userObj.passwordHash === profileCurrentPassword;
+
+    if (!isCurrentPasswordValid) {
+      setProfileError('Current password entered is incorrect.');
       return;
     }
 
-    if (profileNewPassword.length < 4) {
-      setProfileError('New password must be at least 4 characters long.');
-      return;
-    }
+    // Hash the new password
+    const hashedNewPassword = await hashPassword(profileNewPassword);
 
-    try {
-      const userObj = await dbService.getUser(currentUser.phoneNumber);
-      if (!userObj) {
-        setProfileError('Profile record not verified in database.');
-        return;
-      }
+    // Update both password fields for compatibility
+    await dbService.updateUser(currentUser.phoneNumber, {
+      password: profileNewPassword, // Store plain text for backward compatibility
+      passwordHash: hashedNewPassword, // Store hashed version for security
+    });
 
-      if (userObj.password !== profileCurrentPassword && userObj.passwordHash !== profileCurrentPassword) {
-        setProfileError('Current password entered is incorrect.');
-        return;
-      }
-
-      await dbService.updateUser(currentUser.phoneNumber, {
-        password: profileNewPassword
-      });
-
-      setProfileSuccess('Your profile login password has been successfully updated!');
-      setProfileCurrentPassword('');
-      setProfileNewPassword('');
-      setProfileConfirmPassword('');
-      soundService.playSuccessChime();
-    } catch (err: any) {
-      setProfileError(`Could not modify security keys. ${err.message || ''}`);
-    }
-  };
-
+    setProfileSuccess('Your profile login password has been successfully updated!');
+    setProfileCurrentPassword('');
+    setProfileNewPassword('');
+    setProfileConfirmPassword('');
+    soundService.playSuccessChime();
+  } catch (err: any) {
+    setProfileError(`Could not modify security keys. ${err.message || ''}`);
+  }
+};
   // Leave submit
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

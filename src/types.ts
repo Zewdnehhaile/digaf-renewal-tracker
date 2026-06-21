@@ -48,7 +48,7 @@ export interface User {
   createdAt: string;
   customRole?: string; // Legacy support
   businessRole?: string; // Business Roles: Senior Digital KYC Officer, etc.
-  workspace?: 'first_round' | 'second_round' | 'both'; // Workspace Routing
+  workspace?: 'first_round' | 'second_round' | 'both' | 'attendance' | 'chat' | 'attendance_chat';// Workspace Routing
   hasRenewalTrackerAccess?: boolean; // Toggles whether they see Renewal modules
   deviceSignature?: string;
   deviceRegistrationDate?: string;
@@ -67,6 +67,18 @@ export interface User {
   registeredSelfieUrl?: string; // Registered reference face image URL
   forcePasswordChange?: boolean; // Forced password change at next login
   tempPassword?: string; // Stored temporary password if reset
+
+
+  permissions?: {
+    canViewFirstRound: boolean;
+    canViewSecondRound: boolean;
+    canViewAttendance: boolean;
+    canViewChat: boolean;
+    canViewCustomers: boolean;
+    canViewReports: boolean;
+    canManageUsers: boolean;
+    canViewAI: boolean;
+  };
 }
 
 export const STATUS_LIST: CustomerStatus[] = [

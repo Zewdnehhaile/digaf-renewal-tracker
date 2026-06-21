@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { User, ActivityLog, Customer, STATUS_LIST, CustomerStatus } from '../types';
 import { dbService, db } from '../services/db';
-import { 
-  Shield, 
-  Sparkles, 
-  UserX, 
-  UserCheck, 
-  KeyRound, 
-  AlertCircle, 
-  History, 
-  Info, 
-  RefreshCw, 
-  Smartphone, 
-  Check, 
-  HelpCircle, 
-  Users, 
-  CheckSquare, 
-  ClipboardList, 
-  Trash2, 
-  Database, 
-  HardDrive, 
-  Flame, 
-  Compass, 
+import {
+  Shield,
+  Sparkles,
+  UserX,
+  UserCheck,
+  KeyRound,
+  AlertCircle,
+  History,
+  Info,
+  RefreshCw,
+  Smartphone,
+  Check,
+  HelpCircle,
+  Users,
+  CheckSquare,
+  ClipboardList,
+  Trash2,
+  Database,
+  HardDrive,
+  Flame,
+  Compass,
   Activity,
   Layers,
   Sliders,
@@ -35,6 +35,7 @@ import { hashPassword } from '../utils/security';
 import ActivityLogView from './ActivityLogView';
 import QuickControllerView from './QuickControllerView';
 import AIControlCenter from './AIControlCenter';
+import WorkspaceBadge from './WorkspaceBadge';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -73,7 +74,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [operatorSearch, setOperatorSearch] = useState('');
   const [deviceSearch, setDeviceSearch] = useState('');
-  
+
   // Navigation tabs state (Now fully supports corporate workspaces and backup restore snap panels)
   const [activeTab, setActiveTab] = useState<'operators' | 'portfolios' | 'audit' | 'telemetry' | 'quick' | 'ai_hub' | 'tasks' | 'devices' | 'backups' | 'errors'>('quick');
 
@@ -81,7 +82,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedCustomRole, setSelectedCustomRole] = useState('');
   const [selectedTrackerAccess, setSelectedTrackerAccess] = useState(true);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<'first_round' | 'second_round' | 'both'>('both');
+  const [selectedWorkspace, setSelectedWorkspace] = useState<'first_round' | 'second_round' | 'both' | 'attendance' | 'chat' | 'attendance_chat'>('both');
   const [newPassword, setNewPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -98,7 +99,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const [addCustomRole, setAddCustomRole] = useState('Digital Operational Officer');
   const [addCustomRoleText, setAddCustomRoleText] = useState('');
   const [selectedCustomRoleText, setSelectedCustomRoleText] = useState('');
-  const [addWorkspace, setAddWorkspace] = useState<'first_round' | 'second_round' | 'both'>('first_round');
+  const [addWorkspace, setAddWorkspace] = useState<'first_round' | 'second_round' | 'both' | 'attendance' | 'chat' | 'attendance_chat'>('first_round');
   const [addEmail, setAddEmail] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
   const [addError, setAddError] = useState('');
@@ -196,7 +197,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.createUser(newUser);
-      
+
       // Log on admin logs
       await dbService.logActivity(
         currentUser.fullName,
@@ -204,7 +205,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         'Renewal Processing',
         `Admin created new employee workstation account: ${newUser.fullName} (${newUser.phoneNumber}) with business role ${addCustomRole}`
       );
-      
+
       soundService.playSuccessChime();
       setAddSuccess(`Employee "${newUser.fullName}" added successfully with role "${addCustomRole}"!`);
       // Reset inputs
@@ -292,7 +293,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
     const nextStatus = user.status === 'active' ? 'deactive' : 'active';
     try {
       await dbService.updateUser(user.phoneNumber, { status: nextStatus });
-      
+
       // Log admin actions
       await dbService.logActivity(
         user.fullName,
@@ -315,7 +316,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     const targetIsSelf = selectedUser.phoneNumber === currentUser.phoneNumber;
     const targetIsSuperAdmin = selectedUser.isSuperAdmin === true || selectedUser.systemProtected === true || selectedUser.role === 'super_admin';
-    
+
     // Prevent Admins (Aman) from modifying Super Admin
     if (targetIsSuperAdmin && currentUser.role !== 'super_admin') {
       setPasswordError('Permission Denied: Only Super Admin can manage Super Admin configuration.');
@@ -360,7 +361,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.updateUser(selectedUser.phoneNumber, updates);
-      
+
       // Log audit trail
       await dbService.logActivity(
         currentUser.fullName,
@@ -383,7 +384,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
-    
+
     // Protect Super Admin using database identity flags
     const isTargetSuperAdmin = deletingUser.isSuperAdmin === true || deletingUser.systemProtected === true || deletingUser.role === 'super_admin';
     if (isTargetSuperAdmin) {
@@ -400,7 +401,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.deleteUser(deletingUser.phoneNumber);
-      
+
       await dbService.logActivity(
         deletingUser.fullName,
         'Renewal Processing',
@@ -435,7 +436,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
   return (
     <div className="space-y-6 animate-fade-in" id="admin_dashboard_view">
-      
+
       {/* Visual top highlight header card - Extremely Compact & Clean */}
       <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden" id="admin_header_card">
         <div className="absolute top-0 right-0 w-48 h-48 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
@@ -467,110 +468,100 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       <div className="flex border-b border-slate-200 gap-1 pb-px overflow-x-auto select-none no-scrollbar">
         <button
           onClick={() => setActiveTab('ai_hub')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'ai_hub'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'ai_hub'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-455 text-slate-500 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] animate-pulse" />
           AI Control Center
         </button>
         <button
           onClick={() => setActiveTab('quick')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'quick'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'quick'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
           Quick Controller
         </button>
         <button
           onClick={() => setActiveTab('operators')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'operators'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'operators'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Smartphone className="w-3.5 h-3.5" />
           Register Indices
         </button>
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'tasks'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'tasks'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <ClipboardList className="w-3.5 h-3.5 text-amber-500" />
           Assignment Center
         </button>
         <button
           onClick={() => setActiveTab('portfolios')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'portfolios'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'portfolios'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Users className="w-3.5 h-3.5" />
           Workloads & Portfolios
         </button>
         <button
           onClick={() => setActiveTab('devices')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'devices'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'devices'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Smartphone className="w-3.5 h-3.5 text-indigo-505" />
           Device Approval
         </button>
         <button
           onClick={() => setActiveTab('backups')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'backups'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'backups'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Database className="w-3.5 h-3.5 text-violet-500" />
           Backup Snapshot Panel
         </button>
         <button
           onClick={() => setActiveTab('audit')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'audit'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'audit'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <History className="w-3.5 h-3.5" />
           Audit Log Ledger
         </button>
         <button
           onClick={() => setActiveTab('errors')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-            activeTab === 'errors'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'errors'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
           Error Center
         </button>
         <button
           onClick={() => setActiveTab('telemetry')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'telemetry'
+          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'telemetry'
               ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
               : 'border-transparent text-slate-450 hover:text-slate-700'
-          }`}
+            }`}
         >
           <Database className="w-3.5 h-3.5" />
           MongoDBStorage Telemetry
@@ -580,7 +571,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       <div className="w-full">
         {activeTab === 'ai_hub' && (
           <div className="animate-fade-in mt-4">
-            <AIControlCenter 
+            <AIControlCenter
               currentUser={currentUser}
               users={users}
             />
@@ -589,10 +580,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
         {activeTab === 'quick' && (
           <div className="animate-fade-in mt-4">
-            <QuickControllerView 
-              customers={customers} 
-              logs={logs} 
-              currentUser={currentUser} 
+            <QuickControllerView
+              customers={customers}
+              logs={logs}
+              currentUser={currentUser}
               onNavigateToReports={() => setActiveTab('audit')}
             />
           </div>
@@ -607,7 +598,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             // Only 1st and 2nd round employees
             return ws === 'first_round' || ws === 'second_round' || ws === 'both';
           });
-          
+
           const searchedDirectoryUsers = filteredDirectoryUsers.filter(u => {
             if (!operatorSearch.trim()) return true;
             const query = operatorSearch.toLowerCase();
@@ -654,7 +645,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       {searchedDirectoryUsers.map((u) => {
                         const isSelf = u.phoneNumber === currentUser.phoneNumber;
                         const isSuper = u.phoneNumber.toLowerCase().includes('zewd') || u.fullName.toLowerCase().includes('zewd');
-                        
+
                         // Mask Super Admin role to non-Zewdneh observers
                         let visibleRole = u.customRole || (isSuper ? '2nd Round Employee' : u.role.toUpperCase());
                         if (isSuper && !isZewdneh && !isSelf) {
@@ -669,11 +660,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 {isSelf && (
                                   <span className="text-[8px] font-extrabold bg-violet-100 text-[#8B5CF6] border border-violet-200 px-1 py-0.2 rounded-xs uppercase">Self</span>
                                 )}
-                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded-xs font-black uppercase tracking-wider ${
-                                  u.role === 'admin' 
-                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
+                                <span className={`text-[8.5px] px-1.5 py-0.2 rounded-xs font-black uppercase tracking-wider ${u.role === 'admin'
+                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                     : 'bg-slate-100 text-slate-600'
-                                }`}>
+                                  }`}>
                                   {visibleRole}
                                 </span>
                               </div>
@@ -683,6 +673,9 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 <div>Status: <span className={`font-sans font-extrabold uppercase ${u.status === 'active' ? 'text-emerald-600' : 'text-amber-600'}`}>{u.status}</span></div>
                                 <div>Renewal Tracker: <strong className="text-slate-700 font-sans">{u.hasRenewalTrackerAccess !== false ? 'ENABLED' : 'ATTENDANCE ONLY'}</strong></div>
                                 <div>Created: <strong>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}</strong></div>
+                                <div>
+                                  Workspace: <WorkspaceBadge workspace={u.workspace || 'both'} />
+                                </div>
                               </div>
                             </div>
 
@@ -714,13 +707,12 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 type="button"
                                 onClick={() => handleToggleStatus(u)}
                                 disabled={isSelf || (isSuper && !isZewdneh)}
-                                className={`px-2 py-1 text-[9px] font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer justify-center ${
-                                  isSelf || (isSuper && !isZewdneh)
+                                className={`px-2 py-1 text-[9px] font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer justify-center ${isSelf || (isSuper && !isZewdneh)
                                     ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
                                     : u.status === 'active'
                                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
                                       : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-                                }`}
+                                  }`}
                               >
                                 {u.status === 'active' ? 'ACTIVE' : 'SUSPENDED'}
                               </button>
@@ -734,11 +726,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                   setDeleteError('');
                                 }}
                                 disabled={isSelf || (isSuper && !isZewdneh)}
-                                className={`px-2 py-1 rounded-lg border text-[9px] font-black transition-all flex items-center gap-1 justify-center cursor-pointer ${
-                                  isSelf || (isSuper && !isZewdneh)
+                                className={`px-2 py-1 rounded-lg border text-[9px] font-black transition-all flex items-center gap-1 justify-center cursor-pointer ${isSelf || (isSuper && !isZewdneh)
                                     ? 'opacity-40 cursor-not-allowed border-none text-[8px]'
                                     : 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-800'
-                                }`}
+                                  }`}
                                 title={isSelf ? "You cannot delete your own session" : "Permanently remove operator"}
                               >
                                 <Trash2 className="w-2.5 h-2.5 text-rose-600" />
@@ -753,128 +744,127 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-            {/* Right column: Edit password override card & Add Employee form */}
-            <div className="space-y-4">
-              {/* Form to Add New Employee */}
-              <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
-                <div className="flex items-center justify-between border-b border-indigo-150 pb-2">
-                  <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                    <UserCheck className="w-3.5 h-3.5 text-[#8B5CF6]" />
-                    Add New Employee
-                  </h4>
-                </div>
-
-                {addSuccess && (
-                  <div className="p-2 bg-emerald-50 border border-emerald-150 rounded text-emerald-800 text-[9px] font-bold">
-                    {addSuccess}
-                  </div>
-                )}
-
-                {addError && (
-                  <div className="p-2 bg-rose-50 border border-rose-150 rounded text-rose-800 text-[9px] font-bold">
-                    [Error] {addError}
-                  </div>
-                )}
-
-                <form onSubmit={handleAddEmployeeSubmit} className="space-y-2.5">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={addName}
-                      onChange={(e) => {
-                        setAddName(e.target.value);
-                        setAddError('');
-                        setAddSuccess('');
-                      }}
-                      placeholder="e.g. Aman / Kebede"
-                      className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-bold text-slate-800"
-                    />
+              {/* Right column: Edit password override card & Add Employee form */}
+              <div className="space-y-4">
+                {/* Form to Add New Employee */}
+                <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-indigo-150 pb-2">
+                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-[#8B5CF6]" />
+                      Add New Employee
+                    </h4>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                      Phone Number / ID
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={addPhone}
-                      onChange={(e) => {
-                        setAddPhone(e.target.value);
-                        setAddError('');
-                        setAddSuccess('');
-                      }}
-                      placeholder="e.g. 0911223344"
-                      className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono font-bold text-slate-800"
-                    />
-                  </div>
+                  {addSuccess && (
+                    <div className="p-2 bg-emerald-50 border border-emerald-150 rounded text-emerald-800 text-[9px] font-bold">
+                      {addSuccess}
+                    </div>
+                  )}
 
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                      Workstation Login Password
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={addPassword}
-                      onChange={(e) => {
-                        setAddPassword(e.target.value);
-                        setAddError('');
-                        setAddSuccess('');
-                      }}
-                      placeholder="e.g. secure123"
-                      className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono font-bold text-slate-800"
-                    />
-                  </div>
+                  {addError && (
+                    <div className="p-2 bg-rose-50 border border-rose-150 rounded text-rose-800 text-[9px] font-bold">
+                      [Error] {addError}
+                    </div>
+                  )}
 
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                      Role & Workload Rights
-                    </label>
-                    <select
-                      value={addCustomRole}
-                      onChange={(e) => {
-                        setAddCustomRole(e.target.value);
-                        setAddError('');
-                        setAddSuccess('');
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-bold text-slate-800"
-                    >
-                      <option value="Digital Loan Officer">Digital Loan Officer</option>
-                      <option value="Senior Digital KYC Officer">Senior Digital KYC Officer</option>
-                      <option value="Digital Operational Officer">Digital Operational Officer</option>
-                      <option value="Credit Controller">Credit Controller</option>
-                      <option value="FTD">FTD</option>
-                      <option value="Admin">Admin</option>
-                      {isZewdneh && <option value="Super Admin">Super Admin</option>}
-                      <option value="Custom...">Custom...</option>
-                    </select>
-                  </div>
-
-                  {addCustomRole === 'Custom...' && (
-                    <div className="space-y-1 animate-fade-in">
+                  <form onSubmit={handleAddEmployeeSubmit} className="space-y-2.5">
+                    <div className="space-y-1">
                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                        Custom Role Title Description
+                        Full Name
                       </label>
                       <input
                         type="text"
                         required
-                        value={addCustomRoleText}
-                        onChange={(e) => setAddCustomRoleText(e.target.value)}
-                        placeholder="e.g. Lead Liquidity Analyst"
+                        value={addName}
+                        onChange={(e) => {
+                          setAddName(e.target.value);
+                          setAddError('');
+                          setAddSuccess('');
+                        }}
+                        placeholder="e.g. Aman / Kebede"
                         className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-bold text-slate-800"
                       />
                     </div>
-                  )}
 
-                  {true && (
                     <div className="space-y-1">
                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                        Round Workspace Assignment
+                        Phone Number / ID
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={addPhone}
+                        onChange={(e) => {
+                          setAddPhone(e.target.value);
+                          setAddError('');
+                          setAddSuccess('');
+                        }}
+                        placeholder="e.g. 0911223344"
+                        className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
+                        Workstation Login Password
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={addPassword}
+                        onChange={(e) => {
+                          setAddPassword(e.target.value);
+                          setAddError('');
+                          setAddSuccess('');
+                        }}
+                        placeholder="e.g. secure123"
+                        className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
+                        Role & Workload Rights
+                      </label>
+                      <select
+                        value={addCustomRole}
+                        onChange={(e) => {
+                          setAddCustomRole(e.target.value);
+                          setAddError('');
+                          setAddSuccess('');
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-bold text-slate-800"
+                      >
+                        <option value="Digital Loan Officer">Digital Loan Officer</option>
+                        <option value="Senior Digital KYC Officer">Senior Digital KYC Officer</option>
+                        <option value="Digital Operational Officer">Digital Operational Officer</option>
+                        <option value="Credit Controller">Credit Controller</option>
+                        <option value="FTD">FTD</option>
+                        <option value="Admin">Admin</option>
+                        {isZewdneh && <option value="Super Admin">Super Admin</option>}
+                        <option value="Custom...">Custom...</option>
+                      </select>
+                    </div>
+
+                    {addCustomRole === 'Custom...' && (
+                      <div className="space-y-1 animate-fade-in">
+                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
+                          Custom Role Title Description
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={addCustomRoleText}
+                          onChange={(e) => setAddCustomRoleText(e.target.value)}
+                          placeholder="e.g. Lead Liquidity Analyst"
+                          className="w-full bg-slate-50 border border-slate-200 text-[11px] p-2 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-bold text-slate-800"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
+                        Workspace & Section Access
                       </label>
                       <select
                         value={addWorkspace}
@@ -888,91 +878,97 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         <option value="first_round">First Round Only</option>
                         <option value="second_round">Second Round Only</option>
                         <option value="both">Both Rounds (All)</option>
+                        <option value="attendance">Attendance Only</option>
+                        <option value="chat">Chat Only</option>
+                        <option value="attendance_chat">Attendance & Chat</option>
                       </select>
+                      <p className="text-[8px] text-slate-400 mt-0.5">
+                        Credit Controllers should select "Attendance & Chat"
+                      </p>
                     </div>
-                  )}
 
-                  <button
-                    type="submit"
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[9.5px] font-black rounded-lg cursor-pointer shadow-xs transition-all uppercase tracking-wider"
-                  >
-                    Register Employee Account
-                  </button>
-                </form>
-              </div>
-
-              {selectedUser ? (
-                <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3.5 animate-fade-in text-[10.5px]">
-                  <div className="flex items-center justify-between border-b border-indigo-150 pb-2">
-                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-                      <KeyRound className="w-3.5 h-3.5 text-[#8B5CF6]" />
-                      Reclassify Workspace Rights
-                    </h4>
-                    <button 
-                      onClick={() => setSelectedUser(null)} 
-                      className="text-xs font-bold text-slate-400 hover:text-slate-600 pl-2 cursor-pointer"
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[9.5px] font-black rounded-lg cursor-pointer shadow-xs transition-all uppercase tracking-wider"
                     >
-                      ✕
+                      Register Employee Account
                     </button>
-                  </div>
+                  </form>
+                </div>
 
-                  <div className="bg-slate-50 p-2.5 rounded-lg text-[9.5px] leading-tight flex flex-col gap-1 border border-slate-150">
-                    <div>Operator: <strong className="text-slate-900 font-sans">{selectedUser.fullName}</strong></div>
-                    <div>Phone Identifier: <strong className="text-slate-700 font-mono">{selectedUser.phoneNumber}</strong></div>
-                  </div>
-
-                  {passwordSuccess && (
-                    <div className="p-2 bg-emerald-50 border border-emerald-150 rounded text-emerald-800 text-[9px] font-bold">
-                      {passwordSuccess}
-                    </div>
-                  )}
-
-                  {passwordError && (
-                    <div className="p-2 bg-rose-50 border border-rose-150 rounded text-rose-800 text-[9px] font-bold">
-                      [Error] {passwordError}
-                    </div>
-                  )}
-
-                  <form onSubmit={handleUpdateUserAccess} className="space-y-3.5">
-                    {/* Role selector dropdown */}
-                    <div className="space-y-1">
-                      <label className="text-[8.5px] font-black text-slate-455 uppercase tracking-wider block">Custom Attendance Role</label>
-                      <select
-                        value={selectedCustomRole}
-                        onChange={(e) => setSelectedCustomRole(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-[10.5px] p-2 rounded-lg font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#8B5CF6]"
+                {selectedUser ? (
+                  <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3.5 animate-fade-in text-[10.5px]">
+                    <div className="flex items-center justify-between border-b border-indigo-150 pb-2">
+                      <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                        <KeyRound className="w-3.5 h-3.5 text-[#8B5CF6]" />
+                        Reclassify Workspace Rights
+                      </h4>
+                      <button
+                        onClick={() => setSelectedUser(null)}
+                        className="text-xs font-bold text-slate-400 hover:text-slate-600 pl-2 cursor-pointer"
                       >
-                        <option value="Digital Loan Officer">Digital Loan Officer</option>
-                        <option value="Senior Digital KYC Officer">Senior Digital KYC Officer</option>
-                        <option value="Digital Operational Officer">Digital Operational Officer</option>
-                        <option value="Credit Controller">Credit Controller</option>
-                        <option value="FTD">FTD</option>
-                        <option value="Admin">Admin</option>
-                        {isZewdneh && <option value="Super Admin">Super Admin</option>}
-                        <option value="Custom...">Custom...</option>
-                      </select>
+                        ✕
+                      </button>
                     </div>
 
-                    {selectedCustomRole === 'Custom...' && (
-                      <div className="space-y-1 animate-fade-in">
-                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
-                          Custom Role Title Description
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={selectedCustomRoleText}
-                          onChange={(e) => setSelectedCustomRoleText(e.target.value)}
-                          placeholder="e.g. Lead Liquidity Analyst"
-                          className="w-full bg-slate-50 border border-slate-200 text-[10.5px] p-2 rounded-lg font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#8B5CF6]"
-                        />
+                    <div className="bg-slate-50 p-2.5 rounded-lg text-[9.5px] leading-tight flex flex-col gap-1 border border-slate-150">
+                      <div>Operator: <strong className="text-slate-900 font-sans">{selectedUser.fullName}</strong></div>
+                      <div>Phone Identifier: <strong className="text-slate-700 font-mono">{selectedUser.phoneNumber}</strong></div>
+                    </div>
+
+                    {passwordSuccess && (
+                      <div className="p-2 bg-emerald-50 border border-emerald-150 rounded text-emerald-800 text-[9px] font-bold">
+                        {passwordSuccess}
                       </div>
                     )}
 
-                    {/* Round Workspace Assignment selector */}
-                    {true && (
+                    {passwordError && (
+                      <div className="p-2 bg-rose-50 border border-rose-150 rounded text-rose-800 text-[9px] font-bold">
+                        [Error] {passwordError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleUpdateUserAccess} className="space-y-3.5">
+                      {/* Role selector dropdown */}
                       <div className="space-y-1">
-                        <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">Round Workspace Assignment</label>
+                        <label className="text-[8.5px] font-black text-slate-455 uppercase tracking-wider block">Custom Attendance Role</label>
+                        <select
+                          value={selectedCustomRole}
+                          onChange={(e) => setSelectedCustomRole(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-[10.5px] p-2 rounded-lg font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#8B5CF6]"
+                        >
+                          <option value="Digital Loan Officer">Digital Loan Officer</option>
+                          <option value="Senior Digital KYC Officer">Senior Digital KYC Officer</option>
+                          <option value="Digital Operational Officer">Digital Operational Officer</option>
+                          <option value="Credit Controller">Credit Controller</option>
+                          <option value="FTD">FTD</option>
+                          <option value="Admin">Admin</option>
+                          {isZewdneh && <option value="Super Admin">Super Admin</option>}
+                          <option value="Custom...">Custom...</option>
+                        </select>
+                      </div>
+
+                      {selectedCustomRole === 'Custom...' && (
+                        <div className="space-y-1 animate-fade-in">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">
+                            Custom Role Title Description
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={selectedCustomRoleText}
+                            onChange={(e) => setSelectedCustomRoleText(e.target.value)}
+                            placeholder="e.g. Lead Liquidity Analyst"
+                            className="w-full bg-slate-50 border border-slate-200 text-[10.5px] p-2 rounded-lg font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#8B5CF6]"
+                          />
+                        </div>
+                      )}
+
+                      {/* Round Workspace Assignment selector */}
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">
+                          Workspace & Section Access
+                        </label>
                         <select
                           value={selectedWorkspace}
                           onChange={(e) => setSelectedWorkspace(e.target.value as any)}
@@ -981,77 +977,81 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                           <option value="first_round">First Round Only</option>
                           <option value="second_round">Second Round Only</option>
                           <option value="both">Both Rounds (All)</option>
+                          <option value="attendance">Attendance Only</option>
+                          <option value="chat">Chat Only</option>
+                          <option value="attendance_chat">Attendance & Chat</option>
                         </select>
-                      </div>
-                    )}
-
-                    {/* Access switch to renewal tracker module */}
-                    <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-150 flex items-center justify-between gap-1.5 align-middle">
-                      <div className="space-y-0.5 leading-tight">
-                        <span className="text-[9.5px] font-extrabold text-slate-800 block">Renewal Tracker Module</span>
-                        <span className="text-[8px] text-slate-400 block font-medium">Allow tracker access for this operator</span>
+                        <p className="text-[8px] text-slate-400 mt-0.5">
+                          Credit Controllers: Select "Attendance & Chat"
+                        </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTrackerAccess(!selectedTrackerAccess)}
-                        className={`px-2 py-1 rounded text-[9px] font-bold font-mono uppercase cursor-pointer transition-all ${
-                          selectedTrackerAccess ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200 text-slate-500 border border-slate-300'
-                        }`}
-                      >
-                        {selectedTrackerAccess ? 'ENABLED' : 'DISABLED'}
-                      </button>
-                    </div>
+                      {/* Access switch to renewal tracker module */}
+                      <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-150 flex items-center justify-between gap-1.5 align-middle">
+                        <div className="space-y-0.5 leading-tight">
+                          <span className="text-[9.5px] font-extrabold text-slate-800 block">Renewal Tracker Module</span>
+                          <span className="text-[8px] text-slate-400 block font-medium">Allow tracker access for this operator</span>
+                        </div>
 
-                    {/* Optional key password reset */}
-                    <div className="space-y-1">
-                      <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">
-                        Override Key Password (Optional)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
-                          <KeyRound className="w-3 h-3" />
-                        </span>
-                        <input
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => {
-                            setNewPassword(e.target.value);
-                            setPasswordError('');
-                          }}
-                          placeholder="Leave empty to keep current password"
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 pl-8 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono text-slate-800"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTrackerAccess(!selectedTrackerAccess)}
+                          className={`px-2 py-1 rounded text-[9px] font-bold font-mono uppercase cursor-pointer transition-all ${selectedTrackerAccess ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200 text-slate-500 border border-slate-300'
+                            }`}
+                        >
+                          {selectedTrackerAccess ? 'ENABLED' : 'DISABLED'}
+                        </button>
                       </div>
-                      <span className="text-[8px] text-slate-400 block font-medium">Keep blank to leave security password untouched.</span>
-                    </div>
 
-                    <div className="flex gap-2 pt-2 border-t border-slate-100">
-                      <button
-                        type="submit"
-                        className="flex-1 py-1.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-[9.5px] font-black rounded-lg cursor-pointer shadow-xs transition-all uppercase tracking-wider"
-                      >
-                        Commit Overwrite
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedUser(null)}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9.5px] font-black rounded-lg cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-4 text-center text-slate-400 text-[10px] space-y-1">
-                  <Info className="w-3.5 h-3.5 mx-auto text-slate-350" />
-                  <p className="font-bold">Keys & Role Management</p>
-                  <p className="text-[9px] leading-tight text-slate-400">Select an operator's ASSIGN button to change custom role, toggle renewal module, or update password securely.</p>
-                </div>
-              )}
+                      {/* Optional key password reset */}
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">
+                          Override Key Password (Optional)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+                            <KeyRound className="w-3 h-3" />
+                          </span>
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => {
+                              setNewPassword(e.target.value);
+                              setPasswordError('');
+                            }}
+                            placeholder="Leave empty to keep current password"
+                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 pl-8 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-[#8B5CF6] font-mono text-slate-800"
+                          />
+                        </div>
+                        <span className="text-[8px] text-slate-400 block font-medium">Keep blank to leave security password untouched.</span>
+                      </div>
+
+                      <div className="flex gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="submit"
+                          className="flex-1 py-1.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-[9.5px] font-black rounded-lg cursor-pointer shadow-xs transition-all uppercase tracking-wider"
+                        >
+                          Commit Overwrite
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUser(null)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9.5px] font-black rounded-lg cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-4 text-center text-slate-400 text-[10px] space-y-1">
+                    <Info className="w-3.5 h-3.5 mx-auto text-slate-350" />
+                    <p className="font-bold">Keys & Role Management</p>
+                    <p className="text-[9px] leading-tight text-slate-400">Select an operator's ASSIGN button to change custom role, toggle renewal module, or update password securely.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
           );
         })()}        {/* TAB 2: PORTFOLIOS & WORKLOAD DISTRIBUTION */}
         {activeTab === 'portfolios' && (() => {
@@ -1060,7 +1060,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             if (!dateStr) return false;
             const dateOnly = dateStr.split('T')[0];
             const todayObj = new Date();
-            
+
             const formatYYYYMMDD = (d: Date) => {
               const yyyy = d.getFullYear();
               const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -1215,8 +1215,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
           const handleExportPerformanceCSV = () => {
             const header = [
-              'Employee Name', 'Role', 'Phone Number', 
-              'First Round Posted', 'First Round Completed', 
+              'Employee Name', 'Role', 'Phone Number',
+              'First Round Posted', 'First Round Completed',
               'Renewal Processing', 'Completed', 'Paid', 'Rejected', 'Waiting', 'No Response',
               'Present Days', 'Late Days', 'Very Late Days'
             ].join(',');
@@ -1254,7 +1254,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
           return (
             <div className="space-y-6 animate-fade-in font-sans">
-              
+
               {/* HEADER CAPTION */}
               <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -1266,7 +1266,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     Real-time performance analytics, round status audits, performance grading and staff scorecards.
                   </p>
                 </div>
-                
+
                 {/* Clean CSV & Excel Redesigned export controls */}
                 <button
                   onClick={handleExportPerformanceCSV}
@@ -1280,7 +1280,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               {/* DATE FILTERS & SEARCH MODULE */}
               <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-                  
+
                   {/* Date Filter Selection Buttons */}
                   <div className="lg:col-span-7 space-y-1.5">
                     <label className="text-[9.5px] font-black text-slate-450 uppercase tracking-wider block">Time Horizon Filter</label>
@@ -1295,11 +1295,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         <button
                           key={btn.id}
                           onClick={() => setDateFilter(btn.id as any)}
-                          className={`px-3 py-1.5 text-[10.5px] font-bold rounded-lg border transition-all cursor-pointer ${
-                            dateFilter === btn.id
+                          className={`px-3 py-1.5 text-[10.5px] font-bold rounded-lg border transition-all cursor-pointer ${dateFilter === btn.id
                               ? 'bg-violet-50 text-[#8B5CF6] border-violet-200 shadow-3xs'
                               : 'bg-transparent text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
-                          }`}
+                            }`}
                         >
                           {btn.label}
                         </button>
@@ -1351,7 +1350,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
               {/* TEAM SUMMARY GLOBAL CARDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
+
                 {/* First Round Summary */}
                 <div className="bg-gradient-to-br from-violet-500/5 to-violet-600/5 border border-violet-100 rounded-xl p-4.5 space-y-3">
                   <div className="flex items-center justify-between border-b border-violet-100/50 pb-2">
@@ -1414,7 +1413,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       <p className="text-[9.5px] text-slate-400 font-medium">Workload statistics computed automatically from logs</p>
                     </div>
                   </div>
-                  
+
                   {/* Select Metric */}
                   <div className="flex items-center gap-1 self-end sm:self-auto">
                     {[
@@ -1425,11 +1424,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       <button
                         key={metric.id}
                         onClick={() => setRankingMetric(metric.id as any)}
-                        className={`px-2.5 py-1 text-[9.5px] font-black uppercase tracking-wider rounded-md border transition-all cursor-pointer ${
-                          rankingMetric === metric.id
+                        className={`px-2.5 py-1 text-[9.5px] font-black uppercase tracking-wider rounded-md border transition-all cursor-pointer ${rankingMetric === metric.id
                             ? 'bg-rose-50 text-rose-700 border-rose-200'
                             : 'bg-transparent text-slate-450 border-slate-150/80 hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         {metric.label}
                       </button>
@@ -1502,7 +1500,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         className="bg-white border border-slate-150 hover:border-violet-300 rounded-xl p-4 shadow-3xs hover:shadow-2xs transition-all cursor-pointer flex flex-col justify-between group"
                       >
                         <div className="space-y-3">
-                          
+
                           {/* Top Heading */}
                           <div className="flex items-start justify-between border-b border-slate-100 pb-2">
                             <div>
@@ -1518,7 +1516,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
                           {/* Stats Grid: First vs Second */}
                           <div className="grid grid-cols-2 gap-4">
-                            
+
                             {/* First Round */}
                             <div className="space-y-1.5">
                               <span className="text-[8.5px] text-[#8B5CF6] font-black uppercase tracking-wider block border-b border-violet-50 pb-0.5">FIRST ROUND</span>
@@ -1585,14 +1583,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               {selectedDrillDownEmployee && (() => {
                 const emp = selectedDrillDownEmployee;
                 const stats = getEmployeeStats(emp);
-                
+
                 // Retrieve all customer workload items processed/added by this user
                 const handledCustomers = customers.filter(c => matchesEmployee(c, emp) && isWithinDateFilter(c.addedDate));
 
                 return (
                   <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 relative">
-                      
+
                       {/* Close button */}
                       <button
                         onClick={() => setSelectedDrillDownEmployee(null)}
@@ -1624,7 +1622,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
                       {/* Grade Block with score indicators */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        
+
                         {/* Attendance Merit Block */}
                         <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl">
                           <span className="text-[8.5px] font-black text-slate-400 block uppercase">ATTENDANCE LEDGER</span>
@@ -1669,7 +1667,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
                           ACTIVE WORKLOAD ASSIGNMENTS DRILL-DOWN ({handledCustomers.length} ENTRIES)
                         </h4>
-                        
+
                         {handledCustomers.length === 0 ? (
                           <div className="p-8 text-center text-slate-400 text-xs italic border border-slate-100 rounded-xl bg-slate-50/50">
                             No individual customer records assigned or updated by this user within the selected date horizon.
@@ -1693,26 +1691,24 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                     <td className="py-2 px-3 font-extrabold text-slate-800">{c.name}</td>
                                     <td className="py-2 px-3 font-mono text-slate-500">{c.phoneNumber || 'N/A'}</td>
                                     <td className="py-2 px-3">
-                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border tracking-wider ${
-                                        c.workspace === 'second_round'
+                                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border tracking-wider ${c.workspace === 'second_round'
                                           ? 'bg-rose-50 text-rose-700 border-rose-200'
                                           : 'bg-violet-50 text-[#8B5CF6] border-violet-200'
-                                      }`}>
+                                        }`}>
                                         {c.workspace === 'second_round' ? 'Second Round' : 'First Round'}
                                       </span>
                                     </td>
                                     <td className="py-2 px-3">
-                                      <span className={`px-2 py-0.2 rounded-full text-[8px] font-black uppercase border tracking-wider ${
-                                        c.status === 'Completed'
+                                      <span className={`px-2 py-0.2 rounded-full text-[8px] font-black uppercase border tracking-wider ${c.status === 'Completed'
                                           ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                           : c.status === 'Renewal Processing'
-                                          ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                          : c.status === 'Paid'
-                                          ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
-                                          : c.status === 'Waiting'
-                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                          : 'bg-rose-50 text-rose-800 border-rose-200'
-                                      }`}>
+                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                            : c.status === 'Paid'
+                                              ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                              : c.status === 'Waiting'
+                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                : 'bg-rose-50 text-rose-800 border-rose-200'
+                                        }`}>
                                         {c.status}
                                       </span>
                                     </td>
@@ -1775,7 +1771,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </span>
                   <span className="text-[9.5px] font-mono text-slate-500 font-bold">1 GB Cap</span>
                 </div>
-                
+
                 <div className="space-y-1">
                   <div className="flex justify-between text-[9px] font-bold">
                     <span className="text-slate-500">Estimated Used:</span>
@@ -1790,7 +1786,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="bg-emerald-500 h-full transition-all duration-500"
                       style={{ width: `${Math.max(0.1, pctLeft)}%` }}
                     />
@@ -1810,7 +1806,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </span>
                   <span className="text-[9.5px] font-mono text-[#8B5CF6] font-bold">50k / Day</span>
                 </div>
-                
+
                 <div className="space-y-1">
                   <div className="flex justify-between text-[9px] font-bold">
                     <span className="text-slate-500">In-Session Queries:</span>
@@ -1825,7 +1821,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="bg-[#8B5CF6] h-full transition-all duration-500"
                       style={{ width: `${(estSessionReads / 50000) * 100}%` }}
                     />
@@ -1845,7 +1841,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </span>
                   <span className="text-[9.5px] font-mono text-amber-600 font-bold">20k / Day</span>
                 </div>
-                
+
                 <div className="space-y-1">
                   <div className="flex justify-between text-[9px] font-bold">
                     <span className="text-slate-500">System Audit Logs:</span>
@@ -1860,7 +1856,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="bg-amber-500 h-full transition-all duration-500"
                       style={{ width: `${(estSessionWrites / 20000) * 100}%` }}
                     />
@@ -1877,17 +1873,17 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             <div className="p-2.5 bg-indigo-50/50 border border-slate-200 rounded-xl text-[9.5px] text-slate-500 leading-relaxed font-sans space-y-1">
               <span className="font-extrabold text-[#8B5CF6] uppercase block text-[8px] tracking-wider">★ Operational Protocol Advice</span>
               <p>
-               MongoDB Atlas and Spark engines allocate memory counts by individual fields. Releasing documents frees up 100% of their proportional storage sizes immediately. To inspect raw telemetry direct, operators are instructed to authenticate at the Google MongoDBAdmin console.
+                MongoDB Atlas and Spark engines allocate memory counts by individual fields. Releasing documents frees up 100% of their proportional storage sizes immediately. To inspect raw telemetry direct, operators are instructed to authenticate at the Google MongoDBAdmin console.
               </p>
             </div>
           </div>
         )}
 
         {activeTab === 'audit' && (
-          <ActivityLogView 
-            logs={logs} 
-            customers={customers} 
-            isAdminView={true} 
+          <ActivityLogView
+            logs={logs}
+            customers={customers}
+            isAdminView={true}
             currentUser={currentUser}
           />
         )}
@@ -1923,7 +1919,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       reminder: true,
                       notes: ''
                     });
-                    
+
                     await dbService.logActivity(
                       currentUser.fullName,
                       'Renewal Processing',
@@ -2048,16 +2044,15 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     <div className="divide-y divide-slate-105 space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
                       {workAssignments.map((task) => {
                         const assigneeUser = users.find(u => u.phoneNumber === task.assignedTo);
-                        
+
                         return (
                           <div key={task.id} className="pt-3 first:pt-0 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px]">
                             <div className="space-y-1 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider ${
-                                  task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700 border border-rose-300 animate-pulse' :
-                                  task.priority === 'HIGH' ? 'bg-amber-100 text-amber-850 border border-amber-300' :
-                                  'bg-slate-100 text-slate-700'
-                                }`}>
+                                <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider ${task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700 border border-rose-300 animate-pulse' :
+                                    task.priority === 'HIGH' ? 'bg-amber-100 text-amber-850 border border-amber-300' :
+                                      'bg-slate-100 text-slate-700'
+                                  }`}>
                                   {task.priority || 'MEDIUM'}
                                 </span>
                                 <h4 className="font-extrabold text-slate-800">{task.title}</h4>
@@ -2066,14 +2061,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 </span>
                               </div>
                               <p className="text-slate-500 text-[10px] leading-relaxed">{task.description}</p>
-                              
+
                               {task.notes && (
                                 <div className="mt-1.5 p-2 bg-emerald-50/50 border border-emerald-100/80 rounded-xl text-[9.5px] text-emerald-800 leading-snug font-medium">
                                   <span className="font-extrabold uppercase tracking-widest text-emerald-950 block text-[8px] mb-0.5">✔ Handled / Action Logged:</span>
                                   {task.notes}
                                 </div>
                               )}
-                              
+
                               <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[9px] text-slate-450">
                                 <div>Assigned Station: <strong className="text-slate-700 font-sans">{assigneeUser?.fullName || task.assignedTo}</strong></div>
                                 <div>Deadline: <strong className="text-rose-600 font-sans">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'Immediate'}</strong></div>
@@ -2086,28 +2081,28 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 onChange={async (e) => {
                                   let explanation = task.notes || '';
                                   const newStatus = e.target.value;
-                                  
+
                                   const explanationRequired = newStatus === 'COMPLETED' || newStatus === 'STUCK';
                                   if (explanationRequired) {
                                     const userReply = window.prompt(`Describe what actions you took to handle this task:`, task.notes || '');
                                     if (userReply === null) return; // cancel change if they cancelled the dialog
                                     explanation = userReply.trim() || 'Handled successfully.';
                                   }
-                                  
+
                                   try {
                                     await dbService.saveWorkAssignment({
                                       ...task,
                                       status: newStatus,
                                       notes: explanation
                                     });
-                                    
+
                                     await dbService.logActivity(
                                       currentUser.fullName,
                                       'Renewal Processing',
                                       'Renewal Processing',
                                       `Updated task "${task.title}" status to ${newStatus}. Action note: "${explanation}"`
                                     );
-                                    
+
                                     soundService.playSuccessChime();
                                   } catch (err) {
                                     alert('Failed to update task status.');
@@ -2188,155 +2183,155 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   );
                 })
                 .map((employee) => {
-                const isSigDefined = !!employee.deviceSignature;
-                const isApproved = employee.deviceApproved === true;
+                  const isSigDefined = !!employee.deviceSignature;
+                  const isApproved = employee.deviceApproved === true;
 
-                return (
-                  <div key={employee.phoneNumber} className="py-3 items-center justify-between flex flex-col md:flex-row gap-4 first:pt-0 last:pb-0">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-[11.5px] font-black text-slate-800">{employee.fullName}</h4>
-                        <span className="text-[8.5px] font-bold bg-slate-100 text-slate-600 rounded px-1.5 py-0.2 uppercase">
-                          {employee.businessRole || 'Loan officer'}
-                        </span>
+                  return (
+                    <div key={employee.phoneNumber} className="py-3 items-center justify-between flex flex-col md:flex-row gap-4 first:pt-0 last:pb-0">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-[11.5px] font-black text-slate-800">{employee.fullName}</h4>
+                          <span className="text-[8.5px] font-bold bg-slate-100 text-slate-600 rounded px-1.5 py-0.2 uppercase">
+                            {employee.businessRole || 'Loan officer'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 mt-1 text-[9.5px] font-mono text-slate-500">
+                          <div>Verified Phone: <strong className="text-slate-700 font-sans">{employee.phoneNumber}</strong></div>
+                          <div>Device Signature: <span className="text-violet-900 font-bold">{employee.deviceSignature || 'No signature scanned yet'}</span></div>
+                          <div>Last Workspace Link: <span className="font-sans lowercase">{employee.workspace || 'both'} Workspace</span></div>
+                          <div>Email ID: <span className="text-slate-450">{employee.email || 'N/A'}</span></div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 mt-1 text-[9.5px] font-mono text-slate-500">
-                        <div>Verified Phone: <strong className="text-slate-700 font-sans">{employee.phoneNumber}</strong></div>
-                        <div>Device Signature: <span className="text-violet-900 font-bold">{employee.deviceSignature || 'No signature scanned yet'}</span></div>
-                        <div>Last Workspace Link: <span className="font-sans lowercase">{employee.workspace || 'both'} Workspace</span></div>
-                        <div>Email ID: <span className="text-slate-450">{employee.email || 'N/A'}</span></div>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {(() => {
-                        const devStatus = employee.deviceApprovalStatus || (
-                          employee.deviceApproved === true 
-                            ? 'Approved' 
-                            : isSigDefined 
-                              ? 'Pending' 
-                              : 'No Scanner Scanned'
-                        );
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {(() => {
+                          const devStatus = employee.deviceApprovalStatus || (
+                            employee.deviceApproved === true
+                              ? 'Approved'
+                              : isSigDefined
+                                ? 'Pending'
+                                : 'No Scanner Scanned'
+                          );
 
-                        let badgeColor = 'bg-slate-100 text-slate-500';
-                        let badgeLabel = 'No Scanner Scanned';
+                          let badgeColor = 'bg-slate-100 text-slate-500';
+                          let badgeLabel = 'No Scanner Scanned';
 
-                        if (devStatus === 'Approved') {
-                          badgeColor = 'bg-emerald-50 text-emerald-800 border border-emerald-250';
-                          badgeLabel = 'Approved Device';
-                        } else if (devStatus === 'Pending') {
-                          badgeColor = 'bg-amber-50 text-amber-800 border border-amber-250 animate-pulse';
-                          badgeLabel = 'Awaiting Verification';
-                        } else if (devStatus === 'Blocked') {
-                          badgeColor = 'bg-rose-50 text-rose-800 border border-rose-250';
-                          badgeLabel = 'Blocked';
-                        } else if (devStatus === 'Stay Blocked') {
-                          badgeColor = 'bg-rose-950/20 text-rose-950 border border-rose-350 font-extrabold';
-                          badgeLabel = '🚫 Stay Blocked';
-                        }
+                          if (devStatus === 'Approved') {
+                            badgeColor = 'bg-emerald-50 text-emerald-800 border border-emerald-250';
+                            badgeLabel = 'Approved Device';
+                          } else if (devStatus === 'Pending') {
+                            badgeColor = 'bg-amber-50 text-amber-800 border border-amber-250 animate-pulse';
+                            badgeLabel = 'Awaiting Verification';
+                          } else if (devStatus === 'Blocked') {
+                            badgeColor = 'bg-rose-50 text-rose-800 border border-rose-250';
+                            badgeLabel = 'Blocked';
+                          } else if (devStatus === 'Stay Blocked') {
+                            badgeColor = 'bg-rose-950/20 text-rose-950 border border-rose-350 font-extrabold';
+                            badgeLabel = '🚫 Stay Blocked';
+                          }
 
-                        return (
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black font-sans uppercase tracking-wide flex items-center gap-1 ${badgeColor}`}>
-                              {badgeLabel}
-                            </span>
-                            {employee.deviceApprovalReason && (
-                              <span className="text-[7.5px] text-rose-700 italic max-w-[120px] truncate block" title={employee.deviceApprovalReason}>
-                                Reason: {employee.deviceApprovalReason}
+                          return (
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black font-sans uppercase tracking-wide flex items-center gap-1 ${badgeColor}`}>
+                                {badgeLabel}
                               </span>
-                            )}
-                          </div>
-                        );
-                      })()}
+                              {employee.deviceApprovalReason && (
+                                <span className="text-[7.5px] text-rose-700 italic max-w-[120px] truncate block" title={employee.deviceApprovalReason}>
+                                  Reason: {employee.deviceApprovalReason}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
 
-                      {isSigDefined && (employee.deviceApprovalStatus !== 'Approved' && employee.deviceApproved !== true) && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await dbService.updateUser(employee.phoneNumber, { 
-                                deviceApproved: true,
-                                deviceApprovalStatus: 'Approved',
-                                deviceApprovedBy: currentUser.fullName,
-                                deviceApprovedDate: new Date().toISOString()
-                              });
-                              soundService.playSuccessChime();
-                              await dbService.logActivity(
-                                currentUser.fullName,
-                                'Renewal Processing',
-                                'Renewal Processing',
-                                `Approved device fingerprint signature: "${employee.deviceSignature}" for Operator: ${employee.fullName}`
-                              );
-                              alert(`Successfully verified and approved Device signature for employee ${employee.fullName}!`);
-                            } catch (err) {
-                              alert('Verification failed.');
-                            }
-                          }}
-                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg cursor-pointer text-[9px] font-black uppercase tracking-wider transition-all"
-                        >
-                          Verify & Approve
-                        </button>
-                      )}
+                        {isSigDefined && (employee.deviceApprovalStatus !== 'Approved' && employee.deviceApproved !== true) && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await dbService.updateUser(employee.phoneNumber, {
+                                  deviceApproved: true,
+                                  deviceApprovalStatus: 'Approved',
+                                  deviceApprovedBy: currentUser.fullName,
+                                  deviceApprovedDate: new Date().toISOString()
+                                });
+                                soundService.playSuccessChime();
+                                await dbService.logActivity(
+                                  currentUser.fullName,
+                                  'Renewal Processing',
+                                  'Renewal Processing',
+                                  `Approved device fingerprint signature: "${employee.deviceSignature}" for Operator: ${employee.fullName}`
+                                );
+                                alert(`Successfully verified and approved Device signature for employee ${employee.fullName}!`);
+                              } catch (err) {
+                                alert('Verification failed.');
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg cursor-pointer text-[9px] font-black uppercase tracking-wider transition-all"
+                          >
+                            Verify & Approve
+                          </button>
+                        )}
 
-                      {isSigDefined && (employee.deviceApproved === true || employee.deviceApprovalStatus === 'Approved') && (
-                        <button
-                          onClick={async () => {
-                            if (!confirm('Are you certain you want to revoke this device approval? The user gets locked out instantly.')) return;
-                            try {
-                              await dbService.updateUser(employee.phoneNumber, { 
-                                deviceApproved: false,
-                                deviceApprovalStatus: 'Blocked'
-                              });
-                              soundService.playSuccessChime();
-                              await dbService.logActivity(
-                                currentUser.fullName,
-                                'Renewal Processing',
-                                'Renewal Processing',
-                                `REVOKED device fingerprint signature: "${employee.deviceSignature}" for Operator: ${employee.fullName}`
-                              );
-                            } catch (err) {
-                              alert('Revocation failed.');
-                            }
-                          }}
-                          className="px-2 py-1 hover:bg-rose-50 text-rose-800 hover:border-rose-200 border border-slate-100 rounded-lg text-[9px] font-black transition-all cursor-pointer"
-                        >
-                          Revoke Approval
-                        </button>
-                      )}
+                        {isSigDefined && (employee.deviceApproved === true || employee.deviceApprovalStatus === 'Approved') && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Are you certain you want to revoke this device approval? The user gets locked out instantly.')) return;
+                              try {
+                                await dbService.updateUser(employee.phoneNumber, {
+                                  deviceApproved: false,
+                                  deviceApprovalStatus: 'Blocked'
+                                });
+                                soundService.playSuccessChime();
+                                await dbService.logActivity(
+                                  currentUser.fullName,
+                                  'Renewal Processing',
+                                  'Renewal Processing',
+                                  `REVOKED device fingerprint signature: "${employee.deviceSignature}" for Operator: ${employee.fullName}`
+                                );
+                              } catch (err) {
+                                alert('Revocation failed.');
+                              }
+                            }}
+                            className="px-2 py-1 hover:bg-rose-50 text-rose-800 hover:border-rose-200 border border-slate-100 rounded-lg text-[9px] font-black transition-all cursor-pointer"
+                          >
+                            Revoke Approval
+                          </button>
+                        )}
 
-                      {isSigDefined && employee.deviceApprovalStatus !== 'Stay Blocked' && (
-                        <button
-                          onClick={async () => {
-                            const reason = prompt('Please enter the reason to permanently block this device (block history will be preserved):', employee.deviceApprovalReason || '');
-                            if (reason === null) return; // User cancelled
-                            try {
-                              const blockReason = reason.trim() || 'Permanently blocked by Admin.';
-                              await dbService.updateUser(employee.phoneNumber, { 
-                                deviceApproved: false,
-                                deviceApprovalStatus: 'Stay Blocked',
-                                deviceApprovalReason: blockReason
-                              });
-                              soundService.playSuccessChime();
-                              await dbService.logActivity(
-                                currentUser.fullName,
-                                'Renewal Processing',
-                                'Renewal Processing',
-                                `PERMANENTLY STAY BLOCKED device signature for employee ${employee.fullName}. Reason: ${blockReason}`
-                              );
-                              alert(`Device fingerprint for ${employee.fullName} is now set to "Stay Blocked" status.`);
-                            } catch (err) {
-                              alert('Stay Blocked action failed.');
-                            }
-                          }}
-                          className="px-2 py-1 bg-rose-950 font-black hover:bg-rose-900 border border-transparent rounded-lg text-[9px] text-white transition-all cursor-pointer"
-                          title="Permanently block this device from automatic re-approvals"
-                        >
-                          Stay Blocked
-                        </button>
-                      )}
+                        {isSigDefined && employee.deviceApprovalStatus !== 'Stay Blocked' && (
+                          <button
+                            onClick={async () => {
+                              const reason = prompt('Please enter the reason to permanently block this device (block history will be preserved):', employee.deviceApprovalReason || '');
+                              if (reason === null) return; // User cancelled
+                              try {
+                                const blockReason = reason.trim() || 'Permanently blocked by Admin.';
+                                await dbService.updateUser(employee.phoneNumber, {
+                                  deviceApproved: false,
+                                  deviceApprovalStatus: 'Stay Blocked',
+                                  deviceApprovalReason: blockReason
+                                });
+                                soundService.playSuccessChime();
+                                await dbService.logActivity(
+                                  currentUser.fullName,
+                                  'Renewal Processing',
+                                  'Renewal Processing',
+                                  `PERMANENTLY STAY BLOCKED device signature for employee ${employee.fullName}. Reason: ${blockReason}`
+                                );
+                                alert(`Device fingerprint for ${employee.fullName} is now set to "Stay Blocked" status.`);
+                              } catch (err) {
+                                alert('Stay Blocked action failed.');
+                              }
+                            }}
+                            className="px-2 py-1 bg-rose-950 font-black hover:bg-rose-900 border border-transparent rounded-lg text-[9px] text-white transition-all cursor-pointer"
+                            title="Permanently block this device from automatic re-approvals"
+                          >
+                            Stay Blocked
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         )}
@@ -2427,7 +2422,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     <div className="divide-y divide-slate-100 space-y-3 text-[11px]">
                       {backups.map((snap) => {
                         const dateStr = snap.createdAt ? new Date(snap.createdAt).toLocaleString() : 'N/A';
-                        
+
                         return (
                           <div key={snap.id} className="pt-3.5 first:pt-0 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
                             <div className="space-y-1">
@@ -2470,7 +2465,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                     alert(`Permission Denied: Operator "${currentUser.fullName}" lacks Super Admin credentials. Snapshot rollback can only be performed by a Super Admin.`);
                                     return;
                                   }
-                                  
+
                                   if (!confirm(`RESTORE WARNING: You are about to overwrite entire employee profiles, attendance exception blocks, and customer renewals databases using snapshot: "${snap.description}". Proceed?`)) return;
                                   try {
                                     await dbService.restoreBackupSnapshot(snap.id!);
@@ -2481,11 +2476,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                     alert('Rollback failed. Validate firewall rule logs.');
                                   }
                                 }}
-                                className={`px-2.5 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer ${
-                                  isZewdneh
+                                className={`px-2.5 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer ${isZewdneh
                                     ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'
                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed border opacity-60'
-                                }`}
+                                  }`}
                                 title={isZewdneh ? "Rollback system tables to snapshot state" : "Requires System Owner level clearances"}
                               >
                                 Restore
@@ -2530,7 +2524,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   Central trace router logging internal workstation and mobile API errors, failures, and security overrides.
                 </p>
               </div>
-              
+
               {systemErrors.length > 0 && (
                 <button
                   onClick={async () => {
@@ -2559,7 +2553,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               <div className="divide-y divide-slate-100 space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
                 {systemErrors.map((errLog) => {
                   const stamp = errLog.timestamp ? new Date(errLog.timestamp).toLocaleString() : 'N/A';
-                  
+
                   return (
                     <div key={errLog.id} className="pt-3.5 first:pt-0 pb-1 font-mono text-[10px] space-y-1">
                       <div className="flex items-start justify-between gap-4">
@@ -2568,7 +2562,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         </span>
                         <span className="text-[8.5px] text-slate-400 font-mono shrink-0">{stamp}</span>
                       </div>
-                      
+
                       {errLog.stack && (
                         <pre className="p-2 bg-slate-900 text-slate-200 rounded-lg text-[9px] overflow-x-auto leading-relaxed scrollbar-thin shadow-2xs">
                           {errLog.stack}
@@ -2596,7 +2590,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               <UserX className="w-4.5 h-4.5 shrink-0" />
               <h4 className="text-[11px] font-black uppercase tracking-wider">Confirm Operator Destruction</h4>
             </div>
-            
+
             <p className="text-[10.5px] text-slate-500 leading-normal">
               This action is final and irrecoverable. Are you certain you want to permanently delete the active workstation registry credentials for Operator <strong>{deletingUser.fullName}</strong> ({deletingUser.phoneNumber})?
             </p>
@@ -2624,11 +2618,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               <button
                 onClick={handleDeleteUser}
                 disabled={deleteConfirmPhone !== deletingUser.phoneNumber}
-                className={`flex-1 py-1.5 text-[10px] text-white uppercase tracking-wider font-extrabold rounded-lg transition-all ${
-                  deleteConfirmPhone === deletingUser.phoneNumber
+                className={`flex-1 py-1.5 text-[10px] text-white uppercase tracking-wider font-extrabold rounded-lg transition-all ${deleteConfirmPhone === deletingUser.phoneNumber
                     ? 'bg-rose-605 bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-sm'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed border'
-                }`}
+                  }`}
               >
                 Destroy Registry
               </button>
