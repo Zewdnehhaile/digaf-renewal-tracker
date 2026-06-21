@@ -200,7 +200,7 @@ export const am = {
   'Quick Controller': 'ፈጣን መቆጣጠሪያ',
   'System Database Telemetry & Live Heartbeat': 'የዳታቤዝ የቀጥታ ግንኙነት ሁኔታ',
   'Active Database Connection': 'ንቁ የዳታቤዝ ግንኙነት',
-  'Secure Firestore': 'ደህንነቱ የተጠበቀ ፋየርስተር',
+  'Secure Database': 'ደህንነቱ የተጠበቀ ፋየርስተር',
   'Operational Logs Feed': 'ቀጥታ የተግባራት መዝገቦች',
   'Total Active Users': 'ጠቅላላ ንቁ ሰራተኞች',
   'Zewdneh Override Protection': 'የሰውድነህ መከላከያ ስርዓት',

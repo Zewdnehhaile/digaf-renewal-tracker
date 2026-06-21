@@ -418,7 +418,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
     }
   };
 
-  // Firestore Storage & Resource telemetry calculations based on 1GB spark quotas
+  //  MongoDB  Storage & Resource telemetry calculations based on 1GB spark quotas
   // 1 document averages around 0.5 Kilobytes in typical schema tracking
   const estUsersSize = users.length * 0.45; // KB
   const estCustomersSize = customers.length * 0.65; // KB
@@ -573,7 +573,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           }`}
         >
           <Database className="w-3.5 h-3.5" />
-          Firebase Storage Telemetry
+          MongoDBStorage Telemetry
         </button>
       </div>
 
@@ -1749,13 +1749,13 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           );
         })()}
 
-        {/* TAB 3: FIREBASE SYSTEM TELEMETRY & STORAGE REMAINING */}
+        {/* TAB 3: MongoDBSYSTEM TELEMETRY & STORAGE REMAINING */}
         {activeTab === 'telemetry' && (
           <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs space-y-4 animate-fade-in">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Database className="w-3.5 h-3.5 text-[#8B5CF6]" />
-                Firebase Real-Time DB Storage & Quota Metrics
+                MongoDBReal-Time DB Storage & Quota Metrics
               </h4>
               <span className="px-1.5 py-0.5 bg-[#8B5CF6]/10 text-[#8B5CF6] text-[8.5px] font-bold rounded">
                 Spark Account
@@ -1763,7 +1763,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             </div>
 
             <p className="text-[10px] text-slate-500 leading-relaxed">
-              Below represents the computed data telemetry index of the active Cloud Firestore instance <strong>"{db.app.options.projectId || 'ai-studio-project'}"</strong>. Google Spark rules offer generous allocations daily for early workstation operations.
+              Below represents the computed data telemetry index of the active MongoDB Atlas instance <strong>"renewal_tracker"</strong>. Google Spark rules offer generous allocations daily for early workstation operations.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1877,7 +1877,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             <div className="p-2.5 bg-indigo-50/50 border border-slate-200 rounded-xl text-[9.5px] text-slate-500 leading-relaxed font-sans space-y-1">
               <span className="font-extrabold text-[#8B5CF6] uppercase block text-[8px] tracking-wider">★ Operational Protocol Advice</span>
               <p>
-                Firestore Enterprise and Spark engines allocate memory counts by individual fields. Releasing documents frees up 100% of their proportional storage sizes immediately. To inspect raw telemetry direct, operators are instructed to authenticate at the Google Firebase Admin console.
+               MongoDB Atlas and Spark engines allocate memory counts by individual fields. Releasing documents frees up 100% of their proportional storage sizes immediately. To inspect raw telemetry direct, operators are instructed to authenticate at the Google MongoDBAdmin console.
               </p>
             </div>
           </div>

@@ -2,17 +2,368 @@ import 'dotenv/config';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { MongoClient } from 'mongodb';
 import { GoogleGenAI, Type } from "@google/genai";
-import { connectDB, getDB } from "./src/services/mongodb.js";
+const MONGODB_URI =
+  "mongodb://Digaf_MFI:erCb6Ucnq5pNBS3K@ac-nkqt4y6-shard-00-00.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-01.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-02.yiz1p7x.mongodb.net:27017/?ssl=true&replicaSet=atlas-fqjsli-shard-0&authSource=admin&retryWrites=true&w=majority";
+
+const DB_NAME = process.env.MONGODB_DB_NAME || "renewal_tracker";
+let client: MongoClient | null = null;
+let db: any = null;
+
+async function connectDB() {
+  if (!client) {
+    client = new MongoClient(MONGODB_URI, {
+      serverSelectionTimeoutMS: 30000
+    });
+    console.log("CONNECTING TO:");
+    console.log(MONGODB_URI);
+    await client.connect();
+    db = client.db(DB_NAME);
+    console.log("✅ MongoDB Connected!");
+  }
+  return db;
+}
+
+function getDB() {
+  return db;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 3002;
 
   // Connect to MongoDB
   await connectDB();
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
+  // ==================== MONGODB API ROUTES ====================
+
+  // --- USERS ---
+  app.get('/api/users', async (req, res) => {
+    try {
+      const users = await db.collection('users').find({}).toArray();
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/users/:identifier', async (req, res) => {
+    try {
+      const identifier = req.params.identifier;
+      const user = await db.collection('users').findOne({
+        $or: [{ phoneNumber: identifier }, { id: identifier }]
+      });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      res.json(user);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/users', async (req, res) => {
+    try {
+      const result = await db.collection('users').insertOne(req.body);
+      res.json({ _id: result.insertedId, ...req.body });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/users/:phone', async (req, res) => {
+    try {
+      await db.collection('users').updateOne(
+        { phoneNumber: req.params.phone },
+        { $set: req.body }
+      );
+      res.json(req.body);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- CUSTOMERS ---
+  app.get('/api/customers', async (req, res) => {
+    try {
+      const customers = await db.collection('customers').find({}).toArray();
+      res.json(customers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/customers', async (req, res) => {
+    try {
+      const result = await db.collection('customers').insertOne(req.body);
+      res.json({ _id: result.insertedId, ...req.body });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/customers/:id', async (req, res) => {
+    try {
+      await db.collection('customers').updateOne(
+        { id: req.params.id },
+        { $set: req.body }
+      );
+      res.json(req.body);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.collection('customers').deleteOne({ id: id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json({ success: true, deletedId: id });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+// Add this endpoint after app.delete('/api/customers/:id')
+app.post('/api/customers/import', async (req, res) => {
+  try {
+    const { text, status, addedBy, workspace } = req.body;
+    const names = text.split('\n')
+      .map((n: string) => n.trim())
+      .filter((n: string) => n.length > 0);
+    
+    const customers = names.map((name: string) => ({
+      id: `cust-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: name,
+      phoneNumber: '+251 900 000 000',
+      status: status || 'Renewal Processing',
+      addedBy: addedBy || 'System',
+      addedDate: new Date().toISOString(),
+      updatedDate: new Date().toISOString(),
+      notes: `Bulk imported into ${status}`,
+      workspace: workspace || 'second_round'
+    }));
+    
+    const result = await db.collection('customers').insertMany(customers);
+    res.json({ count: result.insertedCount });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+  // --- ATTENDANCE RECORDS ---
+  app.get('/api/attendance-records', async (req, res) => {
+    try {
+      const records = await db.collection('attendance_records').find({}).toArray();
+      res.json(records);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ATTENDANCE SETTINGS ---
+  app.get('/api/attendance-settings', async (req, res) => {
+    try {
+      const settings = await db.collection('attendance_settings').find({}).toArray();
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- CHATS ---
+  app.get('/api/chats', async (req, res) => {
+    try {
+      const chats = await db.collection('chats').find({}).sort({ timestamp: -1 }).toArray();
+      res.json(chats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ACTIVITY LOGS ---
+  app.get('/api/activity-logs', async (req, res) => {
+    try {
+      const logs = await db.collection('activity_logs').find({}).sort({ timestamp: -1 }).toArray();
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/activity-logs', async (req, res) => {
+    try {
+      const result = await db.collection('activity_logs').insertOne(req.body);
+      res.json({ _id: result.insertedId, ...req.body });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- AI CONFIG ---
+  app.get('/api/ai-config', async (req, res) => {
+    try {
+      const config = await db.collection('ai_config').find({}).toArray();
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- OFFICER PERMISSIONS ---
+  app.get('/api/officer-permissions', async (req, res) => {
+    try {
+      const permissions = await db.collection('officer_permissions').find({}).toArray();
+      res.json(permissions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- SYSTEM ERRORS ---
+  app.get('/api/system-errors', async (req, res) => {
+    try {
+      const errors = await db.collection('system_errors').find({}).sort({ timestamp: -1 }).toArray();
+      res.json(errors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/system-errors', async (req, res) => {
+    try {
+      const result = await db.collection('system_errors').insertOne(req.body);
+      res.json({ _id: result.insertedId, ...req.body });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+    
+
+  // ==================== FIRST ROUND APPLICANTS ====================
+  
+  // Get all applicants
+  app.get('/api/first-round/applicants', async (req, res) => {
+    try {
+      const applicants = await db.collection('first_round_applicants').find({}).toArray();
+      res.json(applicants);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add applicants (single or multiple)
+  app.post('/api/first-round/applicants', async (req, res) => {
+    try {
+      const applicants = req.body;
+      const docs = Array.isArray(applicants) ? applicants : [applicants];
+      
+      docs.forEach(doc => {
+        if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+        if (!doc.updatedAt) doc.updatedAt = new Date().toISOString();
+      });
+      
+      const result = await db.collection('first_round_applicants').insertMany(docs);
+      res.json({ insertedIds: result.insertedIds, count: result.insertedCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update applicant
+  app.put('/api/first-round/applicants/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    updates.updatedAt = new Date().toISOString();
+    
+    // Remove _id from updates - it's immutable!
+    delete updates._id;
+    
+    console.log(`Updating applicant with id: ${id}`, updates);
+    
+    const result = await db.collection('first_round_applicants').updateOne(
+      { id: id },
+      { $set: updates }
+    );
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Applicant not found' });
+    }
+    
+    res.json(updates);
+  } catch (error: any) {
+    console.error('Update error:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+  // Delete applicant
+  app.delete('/api/first-round/applicants/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.collection('first_round_applicants').deleteOne({ id: id });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Archive completed applicants
+  app.post('/api/first-round/archive', async (req, res) => {
+    try {
+      const { applicantIds, reportDate, createdBy } = req.body;
+      
+      const applicants = await db.collection('first_round_applicants')
+        .find({ id: { $in: applicantIds } })
+        .toArray();
+      
+      const report = {
+        id: `report-${Date.now()}`,
+        reportDate: reportDate || new Date().toISOString().split('T')[0],
+        totalRecords: applicants.length,
+        items: applicants.map(a => ({ ...a, archivedAt: new Date().toISOString() })),
+        createdAt: new Date().toISOString(),
+        createdBy: createdBy || 'system'
+      };
+      
+      await db.collection('first_round_reports').insertOne(report);
+      
+      await db.collection('first_round_applicants').updateMany(
+        { id: { $in: applicantIds } },
+        { $set: { status: 'archived', archivedAt: new Date().toISOString() } }
+      );
+      
+      res.json({ success: true, report });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
+  // Get all reports
+  app.get('/api/first-round/reports', async (req, res) => {
+    try {
+      const reports = await db.collection('first_round_reports')
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.json(reports);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete report
+  app.delete('/api/first-round/reports/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.collection('first_round_reports').deleteOne({ id: id });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Initialize Gemini API lazily
   let aiClient: GoogleGenAI | null = null;
@@ -45,7 +396,7 @@ async function startServer() {
       return JSON.parse(cleaned);
     } catch (err) {
       console.warn("[JSON Parse Warning] Standard JSON parse failed, trying regex extraction. Text:", cleaned);
-      
+
       const bIndex = cleaned.indexOf("{");
       const eIndex = cleaned.lastIndexOf("}");
       if (bIndex !== -1 && eIndex !== -1 && eIndex > bIndex) {
@@ -80,7 +431,7 @@ async function startServer() {
     try {
       const { customer, logs, language } = req.body;
       const ai = getAI();
-      
+
       const langInst = getLanguageInstruction(language, true);
       const slicedLogs = Array.isArray(logs) ? logs.slice(0, 15) : [];
 
@@ -253,7 +604,7 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
 
       let historyContext = "";
       if (Array.isArray(history) && history.length > 0) {
-        historyContext = "=== RECENT CONVERSATION HISTORY ===\n" + 
+        historyContext = "=== RECENT CONVERSATION HISTORY ===\n" +
           history.map((turn: any) => `${turn.sender === 'user' ? 'User/Officer' : 'AI Assistant'}: ${turn.text}`).join("\n") +
           "\n===================================\n\n";
       }
@@ -452,7 +803,7 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
 `;
 
       const contentsList: any[] = [promptText];
-      
+
       contentsList.push({
         inlineData: {
           mimeType: "image/jpeg",
@@ -536,7 +887,7 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
         }
       } catch (genError: any) {
         console.warn("Imagen generation failed or not available on this plan. Falling back to high-fidelity Gemini SVG Synthesizer...", genError.message || genError);
-        
+
         const promptText = prompt || "A beautiful corporate administrative avatar profile icon";
         const catText = category || "Avatar";
         const userText = username || "Zewdneh";
@@ -774,8 +1125,8 @@ ${langInst}
               reasoning: { type: Type.STRING }
             },
             required: [
-              "borrowerName", "phoneNumber", "signedDate", "dueDate", 
-              "loanAmount", "serviceFee", "interestRate", 
+              "borrowerName", "phoneNumber", "signedDate", "dueDate",
+              "loanAmount", "serviceFee", "interestRate",
               "isStampAffixed", "isSignatureAffixed", "reasoning"
             ]
           }

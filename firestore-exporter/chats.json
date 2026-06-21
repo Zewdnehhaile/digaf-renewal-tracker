@@ -1,0 +1,92 @@
+{
+  "chat-1781870282051-u6vkw7fb0": {
+    "id": "chat-1781870282051-u6vkw7fb0",
+    "sender": "0948811166",
+    "receiver": "0940120874",
+    "workspace": "both",
+    "content": "hi biko",
+    "createdAt": "2026-06-19T11:58:02.051Z",
+    "read": true
+  },
+  "chat-1781859041557-lmmj6n6fp": {
+    "id": "chat-1781859041557-lmmj6n6fp",
+    "sender": "0988286610",
+    "receiver": "0948811166",
+    "workspace": "both",
+    "content": "hi",
+    "createdAt": "2026-06-19T08:50:41.557Z",
+    "read": true
+  },
+  "chat-1781870213797-4zvi6azjk": {
+    "id": "chat-1781870213797-4zvi6azjk",
+    "sender": "0948811166",
+    "receiver": "0931443655",
+    "workspace": "both",
+    "content": "this is new chat",
+    "createdAt": "2026-06-19T11:56:53.797Z",
+    "read": true
+  },
+  "chat-1781870172053-bk0ou8ah4": {
+    "id": "chat-1781870172053-bk0ou8ah4",
+    "sender": "0988286610",
+    "receiver": "0931443655",
+    "workspace": "both",
+    "content": "sura",
+    "createdAt": "2026-06-19T11:56:12.053Z",
+    "read": true
+  },
+  "chat-1781868682414-beg125img": {
+    "id": "chat-1781868682414-beg125img",
+    "sender": "0933902939",
+    "receiver": "0948811166",
+    "workspace": "both",
+    "content": "testing",
+    "createdAt": "2026-06-19T11:31:22.414Z",
+    "read": true
+  },
+  "chat-1781871846437-ptm5hyodo": {
+    "id": "chat-1781871846437-ptm5hyodo",
+    "sender": "0940120874",
+    "receiver": "0985326831",
+    "workspace": "both",
+    "content": "man",
+    "createdAt": "2026-06-19T12:24:06.437Z",
+    "read": false
+  },
+  "chat-1781878133429-xtqa8ncav": {
+    "id": "chat-1781878133429-xtqa8ncav",
+    "sender": "0931443655",
+    "receiver": "0940120874",
+    "workspace": "both",
+    "content": "selam selam",
+    "createdAt": "2026-06-19T14:08:53.430Z",
+    "read": false
+  },
+  "chat-1781863487146-8uz6tirk6": {
+    "id": "chat-1781863487146-8uz6tirk6",
+    "sender": "0988286610",
+    "receiver": "0931443655",
+    "workspace": "both",
+    "content": "hi",
+    "createdAt": "2026-06-19T10:04:47.146Z",
+    "read": true
+  },
+  "chat-1781863482890-zyxzzn6j6": {
+    "id": "chat-1781863482890-zyxzzn6j6",
+    "sender": "0931443655",
+    "receiver": "0988286610",
+    "workspace": "both",
+    "content": "selam selam",
+    "createdAt": "2026-06-19T10:04:42.890Z",
+    "read": true
+  },
+  "chat-1781868376229-tdczw7djj": {
+    "id": "chat-1781868376229-tdczw7djj",
+    "sender": "0948811166",
+    "receiver": "0988286610",
+    "workspace": "both",
+    "content": "hi",
+    "createdAt": "2026-06-19T11:26:16.229Z",
+    "read": true
+  }
+}

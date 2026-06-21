@@ -40,7 +40,7 @@ export interface ActivityLog {
 export interface User {
   phoneNumber: string; // Document ID
   fullName: string;
-  passwordHash?: string; // Kept as optional during migration to Firebase Auth
+  passwordHash?: string; // Kept as optional for MongoDB
   status: 'active' | 'deactive';
   role: 'super_admin' | 'admin' | 'employee' | 'FTD' | 'Contact Center'; // System Roles
   isSuperAdmin?: boolean;
@@ -333,5 +333,31 @@ export interface ChatMessage {
   read: boolean;
 }
 
+// Add to src/types.ts
+export interface FirstRoundApplicant {
+  id: string;
+  referenceId: string;
+  name: string;
+  bank: string;
+  position: string;
+  branch: string;
+  phoneNumber: string;
+  notes: string;
+  status: 'pending' | 'completed' | 'archived';
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  archivedAt?: string;
+}
 
+export interface FirstRoundReport {
+  id: string;
+  reportDate: string;
+  totalRecords: number;
+  items: FirstRoundApplicant[];
+  createdAt: string;
+  createdBy: string;
+}
 

@@ -1,0 +1,90 @@
+{
+  "918004358": {
+    "phoneNumber": "918004358",
+    "fullName": "Sime",
+    "customerBriefAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": false,
+    "aiReportsAllowed": false
+  },
+  "931443655": {
+    "phoneNumber": "931443655",
+    "fullName": "suraf",
+    "customerBriefAllowed": true,
+    "imageGenerationAllowed": true,
+    "assistantPanelAllowed": true,
+    "aiReportsAllowed": true
+  },
+  "969875646": {
+    "phoneNumber": "969875646",
+    "fullName": "sami",
+    "customerBriefAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": false,
+    "aiReportsAllowed": false
+  },
+  "0988286610": {
+    "phoneNumber": "0988286610",
+    "fullName": "Zewdneh",
+    "customerBriefAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true,
+    "aiReportsAllowed": false
+  },
+  "0904082802": {
+    "customerBriefAllowed": false,
+    "phoneNumber": "0904082802",
+    "fullName": "Biruktawit Mamo",
+    "aiReportsAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true
+  },
+  "0920566071": {
+    "aiReportsAllowed": false,
+    "fullName": "Ezana",
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true,
+    "phoneNumber": "0920566071",
+    "customerBriefAllowed": false
+  },
+  "0927209931": {
+    "customerBriefAllowed": false,
+    "phoneNumber": "0927209931",
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true,
+    "fullName": "Kidusyared Liku",
+    "aiReportsAllowed": false
+  },
+  "0955245591": {
+    "assistantPanelAllowed": true,
+    "phoneNumber": "0955245591",
+    "fullName": "natnael sintayehu",
+    "aiReportsAllowed": true,
+    "customerBriefAllowed": true,
+    "imageGenerationAllowed": true
+  },
+  "0985326831": {
+    "fullName": "Yohannes Mengistu",
+    "phoneNumber": "0985326831",
+    "aiReportsAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true,
+    "customerBriefAllowed": false
+  },
+  "0918004358": {
+    "phoneNumber": "0918004358",
+    "fullName": "Semachew Abebe",
+    "customerBriefAllowed": false,
+    "imageGenerationAllowed": false,
+    "assistantPanelAllowed": true,
+    "aiReportsAllowed": false
+  },
+  "0954846480": {
+    "assistantPanelAllowed": true,
+    "imageGenerationAllowed": false,
+    "aiReportsAllowed": false,
+    "fullName": "raji",
+    "phoneNumber": "0954846480",
+    "customerBriefAllowed": false
+  }
+}

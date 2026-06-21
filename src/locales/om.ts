@@ -200,7 +200,7 @@ export const om = {
   'Quick Controller': 'To\'ataa Saffisaa',
   'System Database Telemetry & Live Heartbeat': 'Odeeffannoo Kuusaa Deetaa Gadi-Kallattii',
   'Active Database Connection': 'Gargalcha Kuusaa Deetaa Hojii',
-  'Secure Firestore': 'Firestore Al-mirkanaa\'aa',
+  'Secure Database': 'Database Al-mirkanaa\'aa',
   'Operational Logs Feed': 'Tarkaanfiiwwan Gochaa Al-kallattii',
   'Total Active Users': 'Waligala Hojjettoota Hojii',
   'Zewdneh Override Protection': 'Sirna Eegumsaa Zewdneh',

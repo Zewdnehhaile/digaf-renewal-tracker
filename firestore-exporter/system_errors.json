@@ -1,0 +1,38 @@
+{
+  "err-1781804421380-710": {
+    "id": "err-1781804421380-710",
+    "timestamp": "2026-06-18T17:40:21.380Z",
+    "errorName": "FirebaseError",
+    "errorMessage": "Firebase: Error (auth/network-request-failed).",
+    "stack": "FirebaseError: Firebase: Error (auth/network-request-failed).\n    at o0 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:480)\n    at vr (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:30)\n    at Q1 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1465)\n    at async iu (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1557)\n    at async mN (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:1144:93)\n    at async vs (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:4224:15337)",
+    "userId": "anonymous",
+    "path": "handleLogin"
+  },
+  "err-1781847549808-148": {
+    "id": "err-1781847549808-148",
+    "timestamp": "2026-06-19T05:39:09.808Z",
+    "errorName": "FirebaseError",
+    "errorMessage": "Firebase: Error (auth/network-request-failed).",
+    "stack": "FirebaseError: Firebase: Error (auth/network-request-failed).\n    at o0 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:480)\n    at vr (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:30)\n    at Q1 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1465)\n    at async iu (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1557)\n    at async mN (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:1144:93)\n    at async vs (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:4224:15337)",
+    "userId": "anonymous",
+    "path": "handleLogin"
+  },
+  "err-1781847123909-885": {
+    "id": "err-1781847123909-885",
+    "timestamp": "2026-06-19T05:32:03.909Z",
+    "errorName": "FirebaseError",
+    "errorMessage": "Firebase: Error (auth/network-request-failed).",
+    "stack": "Wr@https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:154:76\ncreate@https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:154:461\nvr@https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:32\n@https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1467",
+    "userId": "anonymous",
+    "path": "handleLogin"
+  },
+  "err-1781864904685-620": {
+    "id": "err-1781864904685-620",
+    "timestamp": "2026-06-19T10:28:24.685Z",
+    "errorName": "FirebaseError",
+    "errorMessage": "Firebase: Error (auth/network-request-failed).",
+    "stack": "FirebaseError: Firebase: Error (auth/network-request-failed).\n    at o0 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:480)\n    at vr (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:454:30)\n    at Q1 (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1465)\n    at async iu (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:559:1557)\n    at async mN (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:1144:93)\n    at async vs (https://digaf-renewal-tracker-452937791192.europe-west2.run.app/assets/index-OEM2P0TO.js:4224:15337)",
+    "userId": "anonymous",
+    "path": "handleLogin"
+  }
+}

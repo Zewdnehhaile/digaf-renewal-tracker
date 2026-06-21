@@ -43,25 +43,29 @@ export default function QuickControllerView({
 
   // Search customers in real-time
   const searchedCustomers = useMemo(() => {
-    if (!custSearch.trim()) return [];
-    const query = custSearch.toLowerCase();
-    return customers.filter(c => 
-      c.name.toLowerCase().includes(query) || 
-      (c.phoneNumber && c.phoneNumber.includes(query))
-    );
-  }, [customers, custSearch]);
+  if (!custSearch?.trim()) return [];
+  const query = custSearch.toLowerCase().trim();
+  return customers.filter(c => {
+    const name = c?.name || '';
+    const phone = c?.phoneNumber || '';
+    return name.toLowerCase().includes(query) || phone.includes(query);
+  });
+}, [customers, custSearch]);
 
   const activeSelectedCust = useMemo(() => {
     if (!selectedCust) return null;
     return customers.find(c => c.id === selectedCust.id) || selectedCust;
   }, [customers, selectedCust]);
-
-  const customerStatusLogs = useMemo(() => {
-    if (!activeSelectedCust) return [];
-    return logs
-      .filter(l => l.customerName.toLowerCase() === activeSelectedCust.name.toLowerCase())
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [logs, activeSelectedCust]);
+const customerStatusLogs = useMemo(() => {
+  if (!activeSelectedCust) return [];
+  const custName = activeSelectedCust.name?.toLowerCase() || '';
+  return logs
+    .filter(l => {
+      const logName = l?.customerName?.toLowerCase() || '';
+      return logName === custName;
+    })
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}, [logs, activeSelectedCust]);
 
   const handleUpdateStatus = async () => {
     if (!activeSelectedCust) return;
@@ -111,7 +115,7 @@ export default function QuickControllerView({
             <div className="text-[11px] font-mono text-slate-400 bg-slate-800/60 px-3 py-2 rounded-lg border border-slate-755 shrink-0">
               {t('Active Operator:')} <span className="font-extrabold text-indigo-350">{activeOfficer}</span>
             </div>
-            
+
             {/* Blinking bold colored section heading to search easily */}
             <span className="text-[13px] font-black tracking-wide uppercase select-none animate-blink-color bg-slate-850 px-3.5 py-1.5 rounded-lg border border-slate-700 shadow-inner flex items-center gap-1.5">
               <span>★</span> {t('1. Find Customer Accounts')}
@@ -182,9 +186,8 @@ export default function QuickControllerView({
                       setSelectedCust(cust);
                       setStatusToApply(cust.status);
                     }}
-                    className={`p-3 cursor-pointer flex items-center justify-between text-xs transition-colors ${
-                       isCur ? 'bg-indigo-50/80 border-l-4 border-indigo-600' : 'hover:bg-slate-50'
-                    }`}
+                    className={`p-3 cursor-pointer flex items-center justify-between text-xs transition-colors ${isCur ? 'bg-indigo-50/80 border-l-4 border-indigo-600' : 'hover:bg-slate-50'
+                      }`}
                   >
                     <div>
                       <p className="font-extrabold text-slate-800">{cust.name}</p>
@@ -209,16 +212,30 @@ export default function QuickControllerView({
           {activeSelectedCust ? (
             <div className="mt-4 p-5 bg-indigo-50/40 rounded-xl border border-indigo-100 shadow-inner space-y-4">
               <div className="flex items-start justify-between gap-3 pb-3 border-b border-indigo-150">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <span className="text-4xs text-indigo-600 font-mono uppercase tracking-widest font-black block">{t('Active Account Targeted')}</span>
-                  <h5 className="font-black text-slate-850 text-sm mt-0.5 truncate">{activeSelectedCust.name}</h5>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <h5 className="font-black text-slate-850 text-sm truncate">{activeSelectedCust.name}</h5>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(activeSelectedCust.name);
+                        showToast(`✅ Copied "${activeSelectedCust.name}" to clipboard!`, 'success');
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 transition-all cursor-pointer shrink-0"
+                      title="Copy customer name"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
                   <p className="text-3xs text-slate-500 font-mono mt-0.5">{t('DB UID Ref:')} <span className="font-bold">{activeSelectedCust.id}</span></p>
                 </div>
                 <span className={`px-3 py-1 text-3xs font-black uppercase rounded-full shrink-0 ${STATUS_COLORS[activeSelectedCust.status]?.bg} ${STATUS_COLORS[activeSelectedCust.status]?.text} shadow-xs`}>
                   {t(activeSelectedCust.status)}
                 </span>
               </div>
-
               {/* Connected Account Verification Ledger */}
               <div className="bg-gradient-to-r from-amber-50/95 to-white/95 border-l-4 border-l-amber-500 border border-amber-200/60 p-3.5 rounded-xl space-y-2.5 shadow-xs">
                 <div className="flex items-center justify-between">
@@ -277,9 +294,8 @@ export default function QuickControllerView({
                       {customerStatusLogs.map((log) => {
                         const isCurState = activeSelectedCust.status === log.newStatus;
                         return (
-                          <div key={log.id} className={`text-[10px] bg-white/95 border p-2 rounded-lg flex flex-col gap-1 shadow-3xs transition-shadow hover:shadow-2xs ${
-                            isCurState ? 'border-indigo-200 bg-indigo-50/20' : 'border-amber-100/70'
-                          }`}>
+                          <div key={log.id} className={`text-[10px] bg-white/95 border p-2 rounded-lg flex flex-col gap-1 shadow-3xs transition-shadow hover:shadow-2xs ${isCurState ? 'border-indigo-200 bg-indigo-50/20' : 'border-amber-100/70'
+                            }`}>
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-black text-slate-800 flex items-center gap-1 text-[9px] capitalize">
                                 👤 {log.updatedBy}
@@ -317,11 +333,10 @@ export default function QuickControllerView({
                       key={stat}
                       type="button"
                       onClick={() => setStatusToApply(stat)}
-                      className={`px-3 py-2 text-3xs font-black uppercase rounded-lg text-left transition-all truncate border cursor-pointer ${
-                        statusToApply === stat
-                           ? 'bg-linear-to-r from-indigo-700 to-[#8B5CF6] border-indigo-700 text-white font-black shadow-md scale-102'
-                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50/80 hover:border-slate-300'
-                      }`}
+                      className={`px-3 py-2 text-3xs font-black uppercase rounded-lg text-left transition-all truncate border cursor-pointer ${statusToApply === stat
+                          ? 'bg-linear-to-r from-indigo-700 to-[#8B5CF6] border-indigo-700 text-white font-black shadow-md scale-102'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50/80 hover:border-slate-300'
+                        }`}
                     >
                       {t(stat)}
                     </button>

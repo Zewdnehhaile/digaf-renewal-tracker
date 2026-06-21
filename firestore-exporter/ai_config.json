@@ -1,0 +1,16 @@
+{
+  "global_config": {
+    "id": "global_config",
+    "featuresEnabled": true,
+    "customerBriefEnabled": true,
+    "dailyExecutiveReportEnabled": true,
+    "stuckCaseDetectorEnabled": true,
+    "followUpRecommendationEnabled": true,
+    "officerPerformanceEnabled": true,
+    "priorityQueueEnabled": true,
+    "aiReportSummarizationEnabled": true,
+    "imageGenerationEnabled": true,
+    "assistantPanelEnabled": true,
+    "stuckDaysThreshold": 7
+  }
+}
