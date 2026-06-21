@@ -951,12 +951,19 @@ ${langInst}
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     
-    app.get("*", (req, res) => {
-      if (req.path.startsWith("/api")) {
-        return res.status(404).json({ error: "API endpoint not found" });
-      }
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+   // Serve frontend only for non-API routes
+if (process.env.NODE_ENV === "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  app.use(express.static(distPath));
+  
+  app.get("*", (req, res) => {
+    // Skip API routes - they're already handled above
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "API endpoint not found" });
+    }
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
   } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
