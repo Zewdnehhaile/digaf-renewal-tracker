@@ -191,7 +191,19 @@ app.use((req, res, next) => {
       res.status(500).json({ error: error.message });
     }
   });
-
+app.post('/api/attendance-records', async (req, res) => {
+  try {
+    const record = req.body;
+    // Add timestamps if not present
+    if (!record.createdAt) record.createdAt = new Date().toISOString();
+    if (!record.updatedAt) record.updatedAt = new Date().toISOString();
+    
+    const result = await db.collection('attendance_records').insertOne(record);
+    res.json({ _id: result.insertedId, ...record });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
   // --- ATTENDANCE SETTINGS ---
   app.get('/api/attendance-settings', async (req, res) => {
     try {

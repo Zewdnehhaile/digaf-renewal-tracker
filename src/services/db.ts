@@ -73,6 +73,18 @@ importCustomers: async (text: string, status: string, addedBy: string, workspace
   }
 },
   subscribeAttendanceRecords: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-records'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
+  saveAttendanceRecord: async (record: any) => {
+  try {
+    const data = await apiRequest('/attendance-records', {
+      method: 'POST',
+      data: record
+    });
+    return data;
+  } catch (error) {
+    console.error('Error saving attendance record:', error);
+    throw error;
+  }
+},
   subscribeAttendanceSettings: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-settings'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
 
   subscribeChats: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/chats'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 5000); return () => clearInterval(i); },
