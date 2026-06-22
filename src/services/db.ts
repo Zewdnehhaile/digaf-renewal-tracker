@@ -60,31 +60,31 @@ export const dbService = {
     }
   },
   // Add this method to dbService in src/services/db.ts
-importCustomers: async (text: string, status: string, addedBy: string, workspace?: string) => {
-  try {
-    const data = await apiRequest('/customers/import', {
-      method: 'POST',
-      data: { text, status, addedBy, workspace }
-    });
-    return data;
-  } catch (error) {
-    console.error('Error importing customers:', error);
-    throw error;
-  }
-},
+  importCustomers: async (text: string, status: string, addedBy: string, workspace?: string) => {
+    try {
+      const data = await apiRequest('/customers/import', {
+        method: 'POST',
+        data: { text, status, addedBy, workspace }
+      });
+      return data;
+    } catch (error) {
+      console.error('Error importing customers:', error);
+      throw error;
+    }
+  },
   subscribeAttendanceRecords: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-records'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
   saveAttendanceRecord: async (record: any) => {
-  try {
-    const data = await apiRequest('/attendance-records', {
-      method: 'POST',
-      data: record
-    });
-    return data;
-  } catch (error) {
-    console.error('Error saving attendance record:', error);
-    throw error;
-  }
-},
+    try {
+      const data = await apiRequest('/attendance-records', {
+        method: 'POST',
+        data: record
+      });
+      return data;
+    } catch (error) {
+      console.error('Error saving attendance record:', error);
+      throw error;
+    }
+  },
   subscribeAttendanceSettings: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-settings'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
 
   subscribeChats: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/chats'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 5000); return () => clearInterval(i); },
@@ -193,5 +193,43 @@ importCustomers: async (text: string, status: string, addedBy: string, workspace
   subscribeAttendanceExceptions: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
   subscribeAttendanceCorrections: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
   subscribeWorkAssignments: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
-  subscribeBackups: (callback: (data: any[]) => void) => { callback([]); return () => { }; }
+  subscribeBackups: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
+  createGroupChat: async (groupData: any) => {
+    try {
+      return await apiRequest('/groups', { method: 'POST', data: groupData });
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    }
+  },
+  getGroupChats: async () => {
+    try {
+      return await apiRequest('/groups');
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      return [];
+    }
+  },
+  sendChatMessage: async (message: any) => {
+  try {
+    return await apiRequest('/chats', { 
+      method: 'POST', 
+      data: message 
+    });
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    throw error;
+  }
+},
+
+markMessageAsRead: async (messageId: string) => {
+  try {
+    return await apiRequest(`/chats/${messageId}/read`, { 
+      method: 'PUT' 
+    });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    throw error;
+  }
+},
 };

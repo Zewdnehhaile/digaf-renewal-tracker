@@ -37,26 +37,26 @@ async function startServer() {
 
   // ========== CORS - MUST BE FIRST ==========
   // ========== CORS - MUST BE FIRST ==========
-// Use the CORS package properly
-app.use(cors({
-  origin: '*', // For development - allows all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+  // Use the CORS package properly
+  app.use(cors({
+    origin: '*', // For development - allows all origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  }));
 
-// Also keep the custom middleware as a fallback
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+  // Also keep the custom middleware as a fallback
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
 
   // Connect to MongoDB
   await connectDB();
@@ -162,7 +162,7 @@ app.use((req, res, next) => {
       const names = text.split('\n')
         .map((n: string) => n.trim())
         .filter((n: string) => n.length > 0);
-      
+
       const customers = names.map((name: string) => ({
         id: `cust-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: name,
@@ -174,7 +174,7 @@ app.use((req, res, next) => {
         notes: `Bulk imported into ${status}`,
         workspace: workspace || 'second_round'
       }));
-      
+
       const result = await db.collection('customers').insertMany(customers);
       res.json({ count: result.insertedCount });
     } catch (error: any) {
@@ -191,19 +191,19 @@ app.use((req, res, next) => {
       res.status(500).json({ error: error.message });
     }
   });
-app.post('/api/attendance-records', async (req, res) => {
-  try {
-    const record = req.body;
-    // Add timestamps if not present
-    if (!record.createdAt) record.createdAt = new Date().toISOString();
-    if (!record.updatedAt) record.updatedAt = new Date().toISOString();
-    
-    const result = await db.collection('attendance_records').insertOne(record);
-    res.json({ _id: result.insertedId, ...record });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  app.post('/api/attendance-records', async (req, res) => {
+    try {
+      const record = req.body;
+      // Add timestamps if not present
+      if (!record.createdAt) record.createdAt = new Date().toISOString();
+      if (!record.updatedAt) record.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('attendance_records').insertOne(record);
+      res.json({ _id: result.insertedId, ...record });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   // --- ATTENDANCE SETTINGS ---
   app.get('/api/attendance-settings', async (req, res) => {
     try {
@@ -215,14 +215,47 @@ app.post('/api/attendance-records', async (req, res) => {
   });
 
   // --- CHATS ---
-  app.get('/api/chats', async (req, res) => {
-    try {
-      const chats = await db.collection('chats').find({}).sort({ timestamp: -1 }).toArray();
-      res.json(chats);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+app.get('/api/chats', async (req, res) => {
+  try {
+    const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(chats);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Send a new chat message
+app.post('/api/chats', async (req, res) => {
+  try {
+    const chatData = req.body;
+    // Add timestamps and ID if not present
+    if (!chatData.createdAt) chatData.createdAt = new Date().toISOString();
+    if (!chatData.read) chatData.read = false;
+    if (!chatData.id) chatData.id = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    
+    const result = await db.collection('chats').insertOne(chatData);
+    res.json({ _id: result.insertedId, ...chatData });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Mark message as read
+app.put('/api/chats/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.collection('chats').updateOne(
+      { id: id },
+      { $set: { read: true } }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Message not found' });
     }
-  });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
   // --- ACTIVITY LOGS ---
   app.get('/api/activity-logs', async (req, res) => {
@@ -285,7 +318,7 @@ app.post('/api/attendance-records', async (req, res) => {
   // ============================================================
   // ================ FIRST ROUND APPLICANTS ====================
   // ============================================================
-  
+
   app.get('/api/first-round/applicants', async (req, res) => {
     try {
       const applicants = await db.collection('first_round_applicants').find({}).toArray();
@@ -299,12 +332,12 @@ app.post('/api/attendance-records', async (req, res) => {
     try {
       const applicants = req.body;
       const docs = Array.isArray(applicants) ? applicants : [applicants];
-      
+
       docs.forEach(doc => {
         if (!doc.createdAt) doc.createdAt = new Date().toISOString();
         if (!doc.updatedAt) doc.updatedAt = new Date().toISOString();
       });
-      
+
       const result = await db.collection('first_round_applicants').insertMany(docs);
       res.json({ insertedIds: result.insertedIds, count: result.insertedCount });
     } catch (error: any) {
@@ -318,16 +351,16 @@ app.post('/api/attendance-records', async (req, res) => {
       const updates = req.body;
       updates.updatedAt = new Date().toISOString();
       delete updates._id;
-      
+
       const result = await db.collection('first_round_applicants').updateOne(
         { id: id },
         { $set: updates }
       );
-      
+
       if (result.matchedCount === 0) {
         return res.status(404).json({ error: 'Applicant not found' });
       }
-      
+
       res.json(updates);
     } catch (error: any) {
       console.error('Update error:', error);
@@ -348,11 +381,11 @@ app.post('/api/attendance-records', async (req, res) => {
   app.post('/api/first-round/archive', async (req, res) => {
     try {
       const { applicantIds, reportDate, createdBy } = req.body;
-      
+
       const applicants = await db.collection('first_round_applicants')
         .find({ id: { $in: applicantIds } })
         .toArray();
-      
+
       const report = {
         id: `report-${Date.now()}`,
         reportDate: reportDate || new Date().toISOString().split('T')[0],
@@ -361,14 +394,14 @@ app.post('/api/attendance-records', async (req, res) => {
         createdAt: new Date().toISOString(),
         createdBy: createdBy || 'system'
       };
-      
+
       await db.collection('first_round_reports').insertOne(report);
-      
+
       await db.collection('first_round_applicants').updateMany(
         { id: { $in: applicantIds } },
         { $set: { status: 'archived', archivedAt: new Date().toISOString() } }
       );
-      
+
       res.json({ success: true, report });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -972,27 +1005,27 @@ ${langInst}
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    
-   // Serve frontend only for non-API routes
-if (process.env.NODE_ENV === "production") {
-  const distPath = path.join(process.cwd(), "dist");
-  app.use(express.static(distPath));
-  
-  app.get("*", (req, res) => {
-    // Skip API routes - they're already handled above
-    if (req.path.startsWith("/api")) {
-      return res.status(404).json({ error: "API endpoint not found" });
+
+    // Serve frontend only for non-API routes
+    if (process.env.NODE_ENV === "production") {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+
+      app.get("*", (req, res) => {
+        // Skip API routes - they're already handled above
+        if (req.path.startsWith("/api")) {
+          return res.status(404).json({ error: "API endpoint not found" });
+        }
+        res.sendFile(path.join(distPath, "index.html"));
+      });
     }
-    res.sendFile(path.join(distPath, "index.html"));
-  });
-}
   } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-    
+
     app.get("*", async (req, res, next) => {
       if (req.path.startsWith("/api") || req.path.includes(".")) {
         return next();
