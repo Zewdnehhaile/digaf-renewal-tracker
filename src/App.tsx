@@ -271,10 +271,20 @@ export default function App() {
   }, [currentUser, lastActivity]);
 
 // Subscribe to Real-Time PubSub MongoDB Streams - DELAYED FOR FASTER LOGIN
-// Subscribe to Real-Time PubSub MongoDB Streams - INSTANT LOGIN
+// Subscribe to Real-Time PubSub - SEQUENTIAL LOADING (one at a time)
+// Subscribe to Real-Time PubSub - ONLY RUN AFTER LOGIN
+// Subscribe to Real-Time PubSub - LOAD AFTER LOGIN WITH NO DELAY
 useEffect(() => {
-  // Start subscriptions immediately but don't wait for them
+  // ONLY run if user is logged in
+  if (!currentUser) return;
+
+  let isMounted = true;
+
+  console.log('User logged in - loading data...');
+
+  // Load customers IMMEDIATELY
   const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
+    if (!isMounted) return;
     const todayStr = getTodayDateString();
     for (const cust of updatedCustomers) {
       if (cust.status === 'No Response' && cust.followUpDate && cust.followUpDate <= todayStr) {
@@ -288,25 +298,32 @@ useEffect(() => {
     setCustomers(updatedCustomers);
   });
 
+  // Load logs IMMEDIATELY
   const unsubLogs = dbService.subscribeLogs((updatedLogs) => {
+    if (!isMounted) return;
     setLogs(updatedLogs);
   });
 
+  // Load AI config IMMEDIATELY
   const unsubAIConfig = dbService.subscribeAIConfig((loadedConfig) => {
+    if (!isMounted) return;
     setAiConfig(loadedConfig);
   });
 
+  // Load permissions IMMEDIATELY
   const unsubPermissions = dbService.subscribeOfficerPermissions((loadedPerms) => {
+    if (!isMounted) return;
     setOfficerPermissions(loadedPerms);
   });
 
   return () => {
+    isMounted = false;
     unsubCustomers();
     unsubLogs();
     unsubAIConfig();
     unsubPermissions();
   };
-}, []);
+}, [currentUser]);// <<< IMPORTANT: Runs when currentUser changes
 
   // Fetch First Round counts
   useEffect(() => {
@@ -375,7 +392,7 @@ useEffect(() => {
     setCurrentUser(user);
     setInactivityNotice('');
     setLastActivity(Date.now());
-
+    localStorage.setItem('digaf_remembered_session', JSON.stringify(user));
     const params = new URLSearchParams(window.location.search);
     if (params.get('qrScan') === 'true') {
       setActiveTab('attendance');

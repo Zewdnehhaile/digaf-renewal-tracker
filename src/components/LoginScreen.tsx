@@ -82,28 +82,8 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
       setError(initialMessage);
     }
   }, [initialMessage]);
-  useEffect(() => {
-    if (initialMessage) {
-      setError(initialMessage);
-    }
-  }, [initialMessage]);
 
-  // ADD THIS NEW useEffect HERE
-  useEffect(() => {
-    const saved = localStorage.getItem('digaf_remembered_session');
-    if (saved) {
-      try {
-        const user = JSON.parse(saved);
-        const cachedUsers = JSON.parse(localStorage.getItem('digaf_cached_users') || '{}');
-        if (user.phoneNumber && !cachedUsers[user.phoneNumber]) {
-          cachedUsers[user.phoneNumber] = user;
-          localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
-        }
-      } catch (e) {
-        // Ignore cache errors
-      }
-    }
-  }, []);
+  
 
   const sanitizeLoginPhone = (phone: string): string => {
     const cl = phone.trim().toLowerCase();
@@ -117,95 +97,75 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
     return norm;
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneNumber.trim() || !password) {
-      setError(t('All fields are required.'));
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!phoneNumber.trim() || !password) {
+    setError(t('All fields are required.'));
+    return;
+  }
+
+  const inputPhone = sanitizeLoginPhone(phoneNumber);
+  setLoading(true);
+  setError('');
+
+  // CHECK LOCAL STORAGE FIRST - INSTANT!
+  const savedUser = localStorage.getItem('digaf_remembered_session');
+  if (savedUser) {
+    try {
+      const user = JSON.parse(savedUser);
+      if (user.phoneNumber === inputPhone && user.password === password) {
+        // INSTANT LOGIN - no API call!
+        soundService.playSuccessChime();
+        setLoading(false);
+        onLoginSuccess(user, rememberMe);
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // If not in localStorage, make API call (only first time)
+  try {
+    const user = await dbService.getUser(inputPhone);
+    
+    if (!user) {
+      setError(t('User not found. Please check your phone number.'));
+      setLoading(false);
       return;
     }
 
-    const inputPhone = sanitizeLoginPhone(phoneNumber);
-    setLoading(true);
-    setError('');
-
-    try {
-      // FIRST: Check if user exists in localStorage cache (INSTANT)
-      const cachedUsers = JSON.parse(localStorage.getItem('digaf_cached_users') || '{}');
-      let user = cachedUsers[inputPhone];
-
-      // If in cache, LOGIN INSTANTLY while API call happens in background
-      if (user) {
-        // Check password against cached user
-        const isPasswordValid = user.password === password;
-        if (isPasswordValid) {
-          // LOGIN IMMEDIATELY - no waiting for API!
-          soundService.playSuccessChime();
-          if (rememberMe) {
-            localStorage.setItem('digaf_saved_credentials', JSON.stringify({ phoneNumber: inputPhone, password }));
-          }
-          setLoading(false);
-          onLoginSuccess(user, rememberMe);
-
-          // Refresh user data in background
-          dbService.getUser(inputPhone).then(freshUser => {
-            if (freshUser) {
-              cachedUsers[inputPhone] = freshUser;
-              localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
-            }
-          }).catch(() => { });
-          return;
-        }
-      }
-
-      // If not in cache OR password wrong, make the API call
-      user = await dbService.getUser(inputPhone);
-
-      if (!user) {
-        setError(t('User not found. Please check your phone number.'));
-        setLoading(false);
-        return;
-      }
-
-      if (user.status === 'deactive') {
-        setError(t('Your account has been deactivated.'));
-        setLoading(false);
-        return;
-      }
-
-      // Check password
-      const isPasswordValid = user.password === password;
-      if (!isPasswordValid) {
-        setError(t('Incorrect password.'));
-        setLoading(false);
-        return;
-      }
-
-      // Cache the user for next time
-      cachedUsers[inputPhone] = user;
-      localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
-
-      // Success - login
-      soundService.playSuccessChime();
-      if (rememberMe) {
-        localStorage.setItem('digaf_saved_credentials', JSON.stringify({ phoneNumber: inputPhone, password }));
-      }
-
-      // Check if user needs to change password
-      if (user.forcePasswordChange === true) {
-        setForceResetUser(user);
-        setLoading(false);
-        return;
-      }
-
+    if (user.status === 'deactive') {
+      setError(t('Your account has been deactivated.'));
       setLoading(false);
-      onLoginSuccess(user, rememberMe);
-
-    } catch (err: any) {
-      setError(t('Authentication failed. Please try again.'));
-      console.error('Login error:', err);
-      setLoading(false);
+      return;
     }
-  };
+
+    const isPasswordValid = user.password === password;
+    if (!isPasswordValid) {
+      setError(t('Incorrect password.'));
+      setLoading(false);
+      return;
+    }
+
+    soundService.playSuccessChime();
+    if (rememberMe) {
+      localStorage.setItem('digaf_saved_credentials', JSON.stringify({ phoneNumber: inputPhone, password }));
+    }
+
+    if (user.forcePasswordChange === true) {
+      setForceResetUser(user);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    onLoginSuccess(user, rememberMe);
+
+  } catch (err: any) {
+    setError(t('Authentication failed. Please try again.'));
+    console.error('Login error:', err);
+    setLoading(false);
+  }
+};
 
 
   const handleForcePasswordResetSubmit = async (e: React.FormEvent) => {
