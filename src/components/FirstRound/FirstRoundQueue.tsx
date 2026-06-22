@@ -27,7 +27,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
     const [applicantText, setApplicantText] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     // Edit state
     const [editingApplicant, setEditingApplicant] = useState<FirstRoundApplicant | null>(null);
     const [editFormData, setEditFormData] = useState<any>({});
@@ -50,6 +50,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     }, []);
 
     // Add applicant
+    // Add applicant - UPDATED VERSION
     const handleAddApplicant = async () => {
         if (!applicantText.trim()) return;
 
@@ -57,15 +58,17 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
         const newApplicants: FirstRoundApplicant[] = [];
 
         if (inputMode === 'single') {
-            const [name, bank, position, branch, phone, ...notes] = lines;
+            // Format: Full Name, Field of Work, Address, Position, Phone Number
+            const [fullName, fieldOfWork, address, position, phoneNumber, ...notes] = lines;
+
             const applicant: FirstRoundApplicant = {
                 id: `fr-${Date.now()}`,
                 referenceId: `REF-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-                name: name || 'Unknown',
-                bank: bank || '',
-                position: position || '',
-                branch: branch || '',
-                phoneNumber: phone || '',
+                name: fullName || 'Unknown',
+                bank: fieldOfWork || '',        // Field of work (yesera tekuam)
+                branch: address || '',          // Address of field
+                position: position || '',       // Work position
+                phoneNumber: phoneNumber || '',
                 notes: notes.join('\n'),
                 status: 'pending',
                 createdBy: currentUser.phoneNumber,
@@ -75,6 +78,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
             };
             newApplicants.push(applicant);
         } else {
+            // Bulk mode - just names
             lines.forEach(name => {
                 if (name.trim()) {
                     newApplicants.push({
@@ -101,12 +105,12 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
             setApplicants([...newApplicants, ...applicants]);
             setApplicantText('');
             setShowAddForm(false);
+            alert(`✅ ${newApplicants.length} applicant(s) added successfully!`);
         } catch (error) {
             console.error('Error adding applicants:', error);
-            alert('Failed to add applicant. Please try again.');
+            alert('❌ Failed to add applicant. Please try again.');
         }
     };
-
     // Complete applicant
     const handleComplete = async (applicant: FirstRoundApplicant) => {
         try {
@@ -115,20 +119,20 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                 alert('This applicant no longer exists. Please refresh the page.');
                 return;
             }
-            
-            const updated = { 
-                ...applicant, 
-                status: 'completed' as const, 
+
+            const updated = {
+                ...applicant,
+                status: 'completed' as const,
                 completedAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
-            
+
             delete (updated as any)._id;
-            
+
             await dbService.updateFirstRoundApplicant(applicant.id, updated);
             setApplicants(prev => prev.filter(a => a.id !== applicant.id));
             alert('✅ Applicant moved to Completed Loans successfully!');
-            
+
         } catch (error) {
             console.error('Error completing applicant:', error);
             alert('❌ Failed to complete applicant. Please try again.');
@@ -153,7 +157,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
         try {
             delete editFormData._id;
             await dbService.updateFirstRoundApplicant(editingApplicant!.id, editFormData);
-            setApplicants(prev => prev.map(a => 
+            setApplicants(prev => prev.map(a =>
                 a.id === editingApplicant!.id ? { ...a, ...editFormData } : a
             ));
             setEditingApplicant(null);
@@ -235,7 +239,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                             <textarea
                                 value={applicantText}
                                 onChange={(e) => setApplicantText(e.target.value)}
-                                placeholder={inputMode === 'single' ? "Name\nBank\nPosition\nBranch\nPhone Number\nAdditional Notes" : "Adem Mohammed\nKirubel Tibebu\nNaaf sori"}
+                                placeholder={inputMode === 'single' ? "Full Name\nField of Work (yesera tekuam)\nAddress of field\nWork Position\nPhone Number\nAdditional Notes" : "Adem Mohammed\nKirubel Tibebu\nNaaf sori"}
                                 className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] font-mono text-sm min-h-[150px]"
                             />
                         </div>
@@ -285,10 +289,11 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                                         <h4 className="font-bold text-slate-800">{applicant.name}</h4>
                                     </div>
                                     <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                                        <p><span className="font-medium">Bank:</span> {applicant.bank || 'N/A'}</p>
-                                        <p><span className="font-medium">Position:</span> {applicant.position || 'N/A'}</p>
-                                        <p><span className="font-medium">Branch:</span> {applicant.branch || 'N/A'}</p>
-                                        <p><span className="font-medium">Phone:</span> {applicant.phoneNumber || 'N/A'}</p>
+                                        <p><span className="font-medium">Full Name:</span> {applicant.name}</p>
+                                        <p><span className="font-medium">Field of Work:</span> {applicant.bank || 'N/A'}</p>
+                                        <p><span className="font-medium">Address of Field:</span> {applicant.branch || 'N/A'}</p>
+                                        <p><span className="font-medium">Work Position:</span> {applicant.position || 'N/A'}</p>
+                                        <p><span className="font-medium">Phone Number:</span> {applicant.phoneNumber || 'N/A'}</p>
                                     </div>
                                     {applicant.notes && (
                                         <div className="mt-2 p-2 bg-slate-50 rounded-lg text-xs text-slate-600 whitespace-pre-wrap">

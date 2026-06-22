@@ -14,6 +14,7 @@ interface KanbanBoardProps {
   aiConfig?: AIConfig | null;
   officerPermissions?: OfficerAIPermission[];
   currentWorkspace?: 'first_round' | 'second_round';
+  onRefresh?: () => Promise<void>;
 }
 
 const formatDateWithTime = (dateStr?: string) => {
@@ -269,6 +270,16 @@ export default function KanbanBoard({
             text: msg
           }
         }));
+        setToastMessage({
+          type: 'success',
+          text: `✅ ${count} customer${count > 1 ? 's' : ''} imported successfully!`
+        });
+        setTimeout(() => setToastMessage(null), 4000);
+
+        // Refresh the list
+        if (props.onRefresh) {
+          await props.onRefresh();
+        }
 
         setTimeout(() => {
           setBulkStatusMsg(prev => ({ ...prev, [status]: null }));
@@ -346,6 +357,15 @@ export default function KanbanBoard({
       setNewCustNotes('');
       setAddFormError(null);
       setShowAddForm(null);
+
+      // ADD THIS TOAST MESSAGE
+      setToastMessage({ type: 'success', text: `✅ Customer "${trimmedName}" added successfully!` });
+      setTimeout(() => setToastMessage(null), 4000);
+
+      // Refresh the list
+      if (props.onRefresh) {
+        await props.onRefresh();
+      }
     } catch (err) {
       console.error(err);
       setAddFormError('Database creation error.');
@@ -414,6 +434,15 @@ export default function KanbanBoard({
       setDeletingId(null);
       setToastMessage({ type: 'success', text: '✅ Customer deleted successfully!' });
       setTimeout(() => setToastMessage(null), 4000);
+
+      // Try to refresh, but don't show error if it fails
+      try {
+        if (props.onRefresh) {
+          await props.onRefresh();
+        }
+      } catch (refreshErr) {
+        console.warn('Refresh after delete failed, but deletion was successful:', refreshErr);
+      }
     } catch (err) {
       console.error(err);
       setToastMessage({ type: 'error', text: '❌ Failed to delete customer.' });
@@ -936,8 +965,8 @@ export default function KanbanBoard({
                                             }
                                           }}
                                           className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold uppercase tracking-tight transition-all border ${isUpdating
-                                              ? 'opacity-40 bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                              : `${targetColors.bg} ${targetColors.text} ${targetColors.border} hover:scale-105 active:scale-95 shadow-3xs cursor-pointer`
+                                            ? 'opacity-40 bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                            : `${targetColors.bg} ${targetColors.text} ${targetColors.border} hover:scale-105 active:scale-95 shadow-3xs cursor-pointer`
                                             }`}
                                           title={isUpdating ? 'Updating...' : `Move to ${targetStatus}`}
                                         >
@@ -978,8 +1007,8 @@ export default function KanbanBoard({
                                         }
                                       }}
                                       className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold uppercase tracking-tight transition-all border ${!!updatingCustIds[cust.id]
-                                          ? 'opacity-40 bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:scale-105 active:scale-95 shadow-3xs cursor-pointer'
+                                        ? 'opacity-40 bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:scale-105 active:scale-95 shadow-3xs cursor-pointer'
                                         }`}
                                       title="Mark follow-up as Overdue"
                                     >

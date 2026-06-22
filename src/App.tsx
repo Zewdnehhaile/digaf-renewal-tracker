@@ -98,6 +98,11 @@ export default function App() {
 
   // Core synchronized application state
   const [customers, setCustomers] = useState<Customer[]>([]);
+  // Add this function after setCustomers
+  const refreshCustomers = async () => {
+    const updated = await dbService.getCustomers();
+    setCustomers(updated);
+  };
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
   const [officerPermissions, setOfficerPermissions] = useState<OfficerAIPermission[]>([]);
@@ -315,20 +320,21 @@ export default function App() {
   }, []);
 
   // ===== ALL useMemo HOOKS =====
-const secureCustomersForUser = useMemo(() => {
-  if (!currentUser) return [];
-  
-  // Admins and super admins see everything based on filter
-  if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-    if (selectedRoundFilter !== 'both') {
-      return customers.filter(c => c.workspace === selectedRoundFilter);
+  const secureCustomersForUser = useMemo(() => {
+    if (!currentUser) return [];
+
+    // Admins and super admins see everything based on filter
+    if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+      if (selectedRoundFilter !== 'both') {
+        return customers.filter(c => c.workspace === selectedRoundFilter)
+          .sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+      }
+      return customers.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
     }
-    return customers;
-  }
-  
-  // ALL OTHER USERS (including 2nd round) see ALL customers
-  return customers;
-}, [customers, currentUser, selectedRoundFilter]);
+
+    // ALL OTHER USERS see ALL customers, sorted newest first
+    return customers.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+  }, [customers, currentUser, selectedRoundFilter]);
 
   const statsSummary = {
     followUpCount: secureCustomersForUser.filter(c => {
@@ -1193,6 +1199,7 @@ const secureCustomersForUser = useMemo(() => {
               logs={logs}
               aiConfig={aiConfig}
               officerPermissions={officerPermissions}
+              onRefresh={refreshCustomers}
             />
           )}
 

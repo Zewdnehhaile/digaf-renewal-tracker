@@ -44,7 +44,7 @@ export const dbService = {
   subscribeUsers: (callback: (data: any[]) => void) => { dbService.getUsers().then(callback); const i = setInterval(() => dbService.getUsers().then(callback), 10000); return () => clearInterval(i); },
 
   getCustomers: async () => { try { const data = await apiRequest('/customers'); return toArray(data); } catch { return []; } },
-  subscribeCustomers: (callback: (data: any[]) => void) => { dbService.getCustomers().then(callback); const i = setInterval(() => dbService.getCustomers().then(callback), 10000); return () => clearInterval(i); },
+  subscribeCustomers: (callback: (data: any[]) => void) => { dbService.getCustomers().then(callback); const i = setInterval(() => dbService.getCustomers().then(callback), 2000); return () => clearInterval(i); },
   addCustomer: async (customer: any) => { return await apiRequest('/customers', { method: 'POST', data: customer }); },
   updateCustomer: async (id: string, updates: any, reason?: string) => { return await apiRequest(`/customers/${encodeURIComponent(id)}`, { method: 'PUT', data: { ...updates, reason } }); },
   // Add this method to dbService (after updateCustomer, around line 55):
