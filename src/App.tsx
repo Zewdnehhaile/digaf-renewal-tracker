@@ -260,7 +260,7 @@ export default function App() {
     };
   }, [currentUser, lastActivity]);
 
-// Subscribe to Real-Time PubSub MongoDB Streams
+  // Subscribe to Real-Time PubSub MongoDB Streams
   useEffect(() => {
     const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
       const todayStr = getTodayDateString();
@@ -315,23 +315,20 @@ export default function App() {
   }, []);
 
   // ===== ALL useMemo HOOKS =====
-  const secureCustomersForUser = useMemo(() => {
-    if (!currentUser) return [];
-
-    let baseList = customers;
-    if (currentUser.role !== 'admin' && currentUser.role !== 'super_admin' && currentUser.workspace !== 'both') {
-      const userWorkspace = currentUser.workspace || 'second_round';
-      baseList = customers.filter(c => c.workspace === userWorkspace);
+const secureCustomersForUser = useMemo(() => {
+  if (!currentUser) return [];
+  
+  // Admins and super admins see everything based on filter
+  if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+    if (selectedRoundFilter !== 'both') {
+      return customers.filter(c => c.workspace === selectedRoundFilter);
     }
-
-    if (currentUser.role === 'admin' || currentUser.role === 'super_admin' || currentUser.workspace === 'both') {
-      if (selectedRoundFilter !== 'both') {
-        return baseList.filter(c => c.workspace === selectedRoundFilter);
-      }
-    }
-
-    return baseList;
-  }, [customers, currentUser, selectedRoundFilter]);
+    return customers;
+  }
+  
+  // ALL OTHER USERS (including 2nd round) see ALL customers
+  return customers;
+}, [customers, currentUser, selectedRoundFilter]);
 
   const statsSummary = {
     followUpCount: secureCustomersForUser.filter(c => {
@@ -509,8 +506,8 @@ export default function App() {
             <button
               onClick={() => setShowComfortPanel(!showComfortPanel)}
               className={`p-1.5 px-2.5 border rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${eyeComfort > 0 || screenDimming > 0
-                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-250 text-amber-800'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-705'
+                ? 'bg-amber-50 hover:bg-amber-100 border-amber-250 text-amber-800'
+                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-705'
                 }`}
               title={t('Eye Comfort Shield & Brightness Adjuster')}
             >
@@ -645,8 +642,8 @@ export default function App() {
             <button
               onClick={() => setShowComfortPanel(!showComfortPanel)}
               className={`p-1.5 px-2.5 border rounded-lg shadow-3xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${eyeComfort > 0 || screenDimming > 0
-                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-250 text-amber-800'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-705'
+                ? 'bg-amber-50 hover:bg-amber-100 border-amber-250 text-amber-800'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-705'
                 }`}
               title={t('Eye Comfort Shield & Brightness Adjuster')}
             >
@@ -759,66 +756,66 @@ export default function App() {
           <div className="p-4 space-y-6 flex-1 overflow-y-auto">
             {currentUser?.hasRenewalTrackerAccess !== false && currentUser?.role !== 'FTD' && currentUser?.customRole !== 'FTD' && (
               <>
-              {/* Category 0: Rounds Workspace */}
-<div className="space-y-2">
-  <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#8B5CF6] pl-3 py-1 flex items-center gap-1.5">
-    <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse"></span>
-    {language === 'am' ? 'የስራ ዙሮች (Rounds)' : language === 'om' ? 'KOREE ROUNDS' : 'Rounds Workspace'}
-  </div>
-  <nav className="space-y-1">
-    {/* 1st Round Section - ONLY show if user's workspace is 'first_round' or 'both' */}
-    {(currentUser?.workspace === 'first_round' || currentUser?.workspace === 'both') && (
-      <button
-        onClick={() => {
-          setCurrentRound('first');
-          setActiveTab('first_round_queue');
-        }}
-        className={`
+                {/* Category 0: Rounds Workspace */}
+                <div className="space-y-2">
+                  <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#8B5CF6] pl-3 py-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse"></span>
+                    {language === 'am' ? 'የስራ ዙሮች (Rounds)' : language === 'om' ? 'KOREE ROUNDS' : 'Rounds Workspace'}
+                  </div>
+                  <nav className="space-y-1">
+                    {/* 1st Round Section - ONLY show if user's workspace is 'first_round' or 'both' */}
+                    {(currentUser?.workspace === 'first_round' || currentUser?.workspace === 'both') && (
+                      <button
+                        onClick={() => {
+                          setCurrentRound('first');
+                          setActiveTab('first_round_queue');
+                        }}
+                        className={`
           w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
           ${currentRound === 'first'
-            ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-            : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
-          }
+                            ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                            : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                          }
         `}
-        id="sidebar_round_first"
-      >
-        {currentRound === 'first' && (
-          <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-        )}
-        <div className="flex items-center gap-2 bg-transparent">
-          <RefreshCw className={`w-3.5 h-3.5 shrink-0 transition-transform ${currentRound === 'first' ? 'text-[#8B5CF6] scale-110 stroke-[2.2px]' : 'text-slate-400'}`} />
-          <span>1st Round Section</span>
-        </div>
-      </button>
-    )}
+                        id="sidebar_round_first"
+                      >
+                        {currentRound === 'first' && (
+                          <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                        )}
+                        <div className="flex items-center gap-2 bg-transparent">
+                          <RefreshCw className={`w-3.5 h-3.5 shrink-0 transition-transform ${currentRound === 'first' ? 'text-[#8B5CF6] scale-110 stroke-[2.2px]' : 'text-slate-400'}`} />
+                          <span>1st Round Section</span>
+                        </div>
+                      </button>
+                    )}
 
-    {/* 2nd Round Section - ONLY show if user's workspace is 'second_round' or 'both' */}
-    {(currentUser?.workspace === 'second_round' || currentUser?.workspace === 'both') && (
-      <button
-        onClick={() => {
-          setCurrentRound('second');
-          setActiveTab('dashboard');
-        }}
-        className={`
+                    {/* 2nd Round Section - ONLY show if user's workspace is 'second_round' or 'both' */}
+                    {(currentUser?.workspace === 'second_round' || currentUser?.workspace === 'both') && (
+                      <button
+                        onClick={() => {
+                          setCurrentRound('second');
+                          setActiveTab('dashboard');
+                        }}
+                        className={`
           w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
           ${currentRound === 'second'
-            ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-            : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
-          }
+                            ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                            : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                          }
         `}
-        id="sidebar_round_second"
-      >
-        {currentRound === 'second' && (
-          <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-        )}
-        <div className="flex items-center gap-2 bg-transparent">
-          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 transition-transform ${currentRound === 'second' ? 'text-[#8B5CF6] scale-110 stroke-[2.2px]' : 'text-slate-400'}`} />
-          <span>2nd Round Section</span>
-        </div>
-      </button>
-    )}
-  </nav>
-</div>
+                        id="sidebar_round_second"
+                      >
+                        {currentRound === 'second' && (
+                          <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                        )}
+                        <div className="flex items-center gap-2 bg-transparent">
+                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 transition-transform ${currentRound === 'second' ? 'text-[#8B5CF6] scale-110 stroke-[2.2px]' : 'text-slate-400'}`} />
+                          <span>2nd Round Section</span>
+                        </div>
+                      </button>
+                    )}
+                  </nav>
+                </div>
                 {currentRound === 'first' ? (
                   <div className="space-y-2">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
@@ -1124,8 +1121,8 @@ export default function App() {
                     setActiveTab('dashboard');
                   }}
                   className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'both'
-                      ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                      : 'text-slate-600 hover:text-slate-900 border-transparent'
+                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 border-transparent'
                     }`}
                 >
                   Both Sections (Full Page)
@@ -1137,8 +1134,8 @@ export default function App() {
                     setActiveTab('first_round_queue');
                   }}
                   className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'first_round'
-                      ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                      : 'text-slate-600 hover:text-slate-900 border-transparent'
+                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 border-transparent'
                     }`}
                 >
                   1st Round Section
@@ -1150,8 +1147,8 @@ export default function App() {
                     setActiveTab('dashboard');
                   }}
                   className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'second_round'
-                      ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                      : 'text-slate-600 hover:text-slate-900 border-transparent'
+                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
+                    : 'text-slate-600 hover:text-slate-900 border-transparent'
                     }`}
                 >
                   2nd Round Section
