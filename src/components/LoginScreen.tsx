@@ -82,6 +82,28 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
       setError(initialMessage);
     }
   }, [initialMessage]);
+  useEffect(() => {
+    if (initialMessage) {
+      setError(initialMessage);
+    }
+  }, [initialMessage]);
+
+  // ADD THIS NEW useEffect HERE
+  useEffect(() => {
+    const saved = localStorage.getItem('digaf_remembered_session');
+    if (saved) {
+      try {
+        const user = JSON.parse(saved);
+        const cachedUsers = JSON.parse(localStorage.getItem('digaf_cached_users') || '{}');
+        if (user.phoneNumber && !cachedUsers[user.phoneNumber]) {
+          cachedUsers[user.phoneNumber] = user;
+          localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+  }, []);
 
   const sanitizeLoginPhone = (phone: string): string => {
     const cl = phone.trim().toLowerCase();
@@ -107,8 +129,36 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
     setError('');
 
     try {
-      // Get user from MongoDB
-      const user = await dbService.getUser(inputPhone);
+      // FIRST: Check if user exists in localStorage cache (INSTANT)
+      const cachedUsers = JSON.parse(localStorage.getItem('digaf_cached_users') || '{}');
+      let user = cachedUsers[inputPhone];
+
+      // If in cache, LOGIN INSTANTLY while API call happens in background
+      if (user) {
+        // Check password against cached user
+        const isPasswordValid = user.password === password;
+        if (isPasswordValid) {
+          // LOGIN IMMEDIATELY - no waiting for API!
+          soundService.playSuccessChime();
+          if (rememberMe) {
+            localStorage.setItem('digaf_saved_credentials', JSON.stringify({ phoneNumber: inputPhone, password }));
+          }
+          setLoading(false);
+          onLoginSuccess(user, rememberMe);
+
+          // Refresh user data in background
+          dbService.getUser(inputPhone).then(freshUser => {
+            if (freshUser) {
+              cachedUsers[inputPhone] = freshUser;
+              localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
+            }
+          }).catch(() => { });
+          return;
+        }
+      }
+
+      // If not in cache OR password wrong, make the API call
+      user = await dbService.getUser(inputPhone);
 
       if (!user) {
         setError(t('User not found. Please check your phone number.'));
@@ -122,16 +172,17 @@ export default function LoginScreen({ onLoginSuccess, initialMessage }: LoginScr
         return;
       }
 
-      // Check password - plain text comparison
-const enteredHash = await hashPassword(password);
-const isPasswordValid = user.password === password || 
-                        user.passwordHash === enteredHash || 
-                        user.passwordHash === password;
+      // Check password
+      const isPasswordValid = user.password === password;
       if (!isPasswordValid) {
         setError(t('Incorrect password.'));
         setLoading(false);
         return;
       }
+
+      // Cache the user for next time
+      cachedUsers[inputPhone] = user;
+      localStorage.setItem('digaf_cached_users', JSON.stringify(cachedUsers));
 
       // Success - login
       soundService.playSuccessChime();
@@ -146,15 +197,16 @@ const isPasswordValid = user.password === password ||
         return;
       }
 
+      setLoading(false);
       onLoginSuccess(user, rememberMe);
 
     } catch (err: any) {
       setError(t('Authentication failed. Please try again.'));
       console.error('Login error:', err);
-    } finally {
       setLoading(false);
     }
   };
+
 
   const handleForcePasswordResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

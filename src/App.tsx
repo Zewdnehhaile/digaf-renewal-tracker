@@ -77,7 +77,7 @@ export default function App() {
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<'both' | 'first_round' | 'second_round'>('both');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bounceBranding, setBounceBranding] = useState(false);
-
+  const [isVerifying, setIsVerifying] = useState(false);
   // Authenticated state with automatic remember-me logic
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     localStorage.removeItem('digaf_active_officer');
@@ -176,43 +176,48 @@ export default function App() {
   }, []);
 
   // Synchronize and verify current user status with database
-  useEffect(() => {
-    if (!currentUser) return;
-    let isSubscribed = true;
+  //useEffect(() => {
+    //if (!currentUser) return;
+    //let isSubscribed = true;
 
-    const syncUser = async () => {
-      try {
-        const freshUser = await dbService.getUser(currentUser.phoneNumber);
-        if (!isSubscribed) return;
+    //const syncUser = async () => {
+      //setIsVerifying(true);
+      //try {
+        //const freshUser = await dbService.getUser(currentUser.phoneNumber);
+        //if (!isSubscribed) return;
 
-        if (!freshUser || freshUser.status === 'deactive') {
-          setCurrentUser(null);
-          localStorage.removeItem('digaf_remembered_session');
-          return;
-        }
+       // if (!freshUser || freshUser.status === 'deactive') {
+         // setCurrentUser(null);
+          //localStorage.removeItem('digaf_remembered_session');
+          //return;
+        //}
 
-        if (freshUser && freshUser.workspace === 'first_round' && freshUser.role !== 'admin' && freshUser.role !== 'super_admin') {
-          setCurrentRound('first');
-          setActiveTab('first_round_queue');
-        }
+        //if (freshUser && freshUser.workspace === 'first_round' && freshUser.role !== 'admin' && freshUser.role !== 'super_admin') {
+         // setCurrentRound('first');
+         // setActiveTab('first_round_queue');
+//        }
+///
+     //   if (
+   //       freshUser.role !== currentUser.role ||
+          //freshUser.hasRenewalTrackerAccess !== currentUser.hasRenewalTrackerAccess ||
+          //freshUser.deviceApproved !== currentUser.deviceApproved ||
+        //  freshUser.deviceSignature !== currentUser.deviceSignature
+      //  ) {
+          //setCurrentUser(freshUser);
+         // localStorage.setItem('digaf_remembered_session', JSON.stringify(freshUser));
+       // }
+     // } catch (err) {
+     //   console.warn("Database sync failure. Retaining local session state.", err);
+     // }
+      //finally {
+    //    setIsVerifying(false); // ADD THIS - Hide loading
+  //    }
+//
+    //};
 
-        if (
-          freshUser.role !== currentUser.role ||
-          freshUser.hasRenewalTrackerAccess !== currentUser.hasRenewalTrackerAccess ||
-          freshUser.deviceApproved !== currentUser.deviceApproved ||
-          freshUser.deviceSignature !== currentUser.deviceSignature
-        ) {
-          setCurrentUser(freshUser);
-          localStorage.setItem('digaf_remembered_session', JSON.stringify(freshUser));
-        }
-      } catch (err) {
-        console.warn("Database sync failure. Retaining local session state.", err);
-      }
-    };
-
-    syncUser();
-    return () => { isSubscribed = false; };
-  }, [currentUser?.phoneNumber]);
+    //syncUser();
+    //return () => { isSubscribed = false; };
+  //}, [currentUser?.phoneNumber]);
 
   // Redirect attendance-only employees and FTD away from dashboard index
   useEffect(() => {
@@ -265,41 +270,43 @@ export default function App() {
     };
   }, [currentUser, lastActivity]);
 
-  // Subscribe to Real-Time PubSub MongoDB Streams
-  useEffect(() => {
-    const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
-      const todayStr = getTodayDateString();
-      for (const cust of updatedCustomers) {
-        if (cust.status === 'No Response' && cust.followUpDate && cust.followUpDate <= todayStr) {
-          try {
-            await dbService.updateCustomer(cust.id, { status: 'Renewal Processing' }, 'System Auto-Shift');
-          } catch (e) {
-            console.error("Auto-shift from No Response failed:", e);
-          }
+// Subscribe to Real-Time PubSub MongoDB Streams - DELAYED FOR FASTER LOGIN
+// Subscribe to Real-Time PubSub MongoDB Streams - INSTANT LOGIN
+useEffect(() => {
+  // Start subscriptions immediately but don't wait for them
+  const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
+    const todayStr = getTodayDateString();
+    for (const cust of updatedCustomers) {
+      if (cust.status === 'No Response' && cust.followUpDate && cust.followUpDate <= todayStr) {
+        try {
+          await dbService.updateCustomer(cust.id, { status: 'Renewal Processing' }, 'System Auto-Shift');
+        } catch (e) {
+          console.error("Auto-shift from No Response failed:", e);
         }
       }
-      setCustomers(updatedCustomers);
-    });
+    }
+    setCustomers(updatedCustomers);
+  });
 
-    const unsubLogs = dbService.subscribeLogs((updatedLogs) => {
-      setLogs(updatedLogs);
-    });
+  const unsubLogs = dbService.subscribeLogs((updatedLogs) => {
+    setLogs(updatedLogs);
+  });
 
-    const unsubAIConfig = dbService.subscribeAIConfig((loadedConfig) => {
-      setAiConfig(loadedConfig);
-    });
+  const unsubAIConfig = dbService.subscribeAIConfig((loadedConfig) => {
+    setAiConfig(loadedConfig);
+  });
 
-    const unsubPermissions = dbService.subscribeOfficerPermissions((loadedPerms) => {
-      setOfficerPermissions(loadedPerms);
-    });
+  const unsubPermissions = dbService.subscribeOfficerPermissions((loadedPerms) => {
+    setOfficerPermissions(loadedPerms);
+  });
 
-    return () => {
-      unsubCustomers();
-      unsubLogs();
-      unsubAIConfig();
-      unsubPermissions();
-    };
-  }, []);
+  return () => {
+    unsubCustomers();
+    unsubLogs();
+    unsubAIConfig();
+    unsubPermissions();
+  };
+}, []);
 
   // Fetch First Round counts
   useEffect(() => {
@@ -383,6 +390,7 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('digaf_remembered_session');
+     localStorage.removeItem('digaf_cached_users');
     setCurrentUser(null);
     setInactivityNotice('');
   };
