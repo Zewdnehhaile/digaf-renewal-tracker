@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { GoogleGenAI, Type } from "@google/genai";
 import cors from 'cors';
 
@@ -31,34 +31,79 @@ function getDB() {
   return db;
 }
 
+// Helper function to find customer by id or _id
+async function findCustomerById(collection: any, id: string) {
+  let query: any = { id: id };
+  
+  // Check if id is a valid ObjectId
+  if (ObjectId.isValid(id)) {
+    try {
+      const doc = await collection.findOne({ _id: new ObjectId(id) });
+      if (doc) return doc;
+    } catch (e) {}
+  }
+  
+  // Try by id field
+  return await collection.findOne({ id: id });
+}
+
+// Helper function to delete customer by id or _id
+async function deleteCustomerById(collection: any, id: string) {
+  // Try by ObjectId first
+  if (ObjectId.isValid(id)) {
+    try {
+      const result = await collection.deleteOne({ _id: new ObjectId(id) });
+      if (result.deletedCount > 0) return result;
+    } catch (e) {}
+  }
+  
+  // Try by id field
+  return await collection.deleteOne({ id: id });
+}
+
+// Helper function to update customer by id or _id
+async function updateCustomerById(collection: any, id: string, updates: any) {
+  // Try by ObjectId first
+  if (ObjectId.isValid(id)) {
+    try {
+      const result = await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updates }
+      );
+      if (result.modifiedCount > 0 || result.matchedCount > 0) return result;
+    } catch (e) {}
+  }
+  
+  // Try by id field
+  return await collection.updateOne(
+    { id: id },
+    { $set: updates }
+  );
+}
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3002;
 
   // ========== CORS - MUST BE FIRST ==========
-  // ========== CORS - MUST BE FIRST ==========
-  // Use the CORS package properly
   app.use(cors({
-    origin: '*', // For development - allows all origins
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   }));
 
-  // Also keep the custom middleware as a fallback
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
-
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
     next();
   });
 
-  // Connect to MongoDB
   await connectDB();
   const db = getDB();
 
@@ -124,34 +169,78 @@ async function startServer() {
 
   app.post('/api/customers', async (req, res) => {
     try {
+      // Generate an id if not provided
+      if (!req.body.id) {
+        req.body.id = `cust-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      }
+      // Add timestamps if not present
+      if (!req.body.addedDate) req.body.addedDate = new Date().toISOString();
+      if (!req.body.updatedDate) req.body.updatedDate = new Date().toISOString();
+      if (!req.body.createdAt) req.body.createdAt = new Date().toISOString();
+      
       const result = await db.collection('customers').insertOne(req.body);
-      res.json({ _id: result.insertedId, ...req.body });
+      // Return the full customer with _id
+      const inserted = await db.collection('customers').findOne({ _id: result.insertedId });
+      res.json(inserted);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.put('/api/customers/:id', async (req, res) => {
-    try {
-      await db.collection('customers').updateOne(
-        { id: req.params.id },
-        { $set: req.body }
-      );
-      res.json(req.body);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
+  // FIXED: DELETE route with both id and _id support
   app.delete('/api/customers/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const result = await db.collection('customers').deleteOne({ id: id });
+      console.log(`[DELETE] Attempting to delete customer with id: ${id}`);
+      
+      const result = await deleteCustomerById(db.collection('customers'), id);
+      
       if (result.deletedCount === 0) {
+        console.log(`[DELETE] Customer not found: ${id}`);
         return res.status(404).json({ error: 'Customer not found' });
       }
+      
+      console.log(`[DELETE] Successfully deleted customer: ${id}`);
       res.json({ success: true, deletedId: id });
     } catch (error: any) {
+      console.error('[DELETE] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // FIXED: PUT route with both id and _id support and returns updated document
+  app.put('/api/customers/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Remove _id from updates if present
+      delete updates._id;
+      
+      // Add timestamps
+      updates.updatedDate = new Date().toISOString();
+      
+      console.log(`[UPDATE] Attempting to update customer: ${id}`);
+      console.log(`[UPDATE] Updates:`, updates);
+      
+      const result = await updateCustomerById(db.collection('customers'), id, updates);
+      
+      if (result.matchedCount === 0) {
+        console.log(`[UPDATE] Customer not found: ${id}`);
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+      
+      // Get the updated document
+      const updatedDoc = await findCustomerById(db.collection('customers'), id);
+      
+      if (!updatedDoc) {
+        return res.status(404).json({ error: 'Customer not found after update' });
+      }
+      
+      console.log(`[UPDATE] Successfully updated customer: ${id}`);
+      res.json(updatedDoc);
+    } catch (error: any) {
+      console.error('[UPDATE] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -163,14 +252,16 @@ async function startServer() {
         .map((n: string) => n.trim())
         .filter((n: string) => n.length > 0);
 
+      const now = new Date().toISOString();
       const customers = names.map((name: string) => ({
         id: `cust-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: name,
         phoneNumber: '+251 900 000 000',
         status: status || 'Renewal Processing',
         addedBy: addedBy || 'System',
-        addedDate: new Date().toISOString(),
-        updatedDate: new Date().toISOString(),
+        addedDate: now,
+        updatedDate: now,
+        createdAt: now,
         notes: `Bulk imported into ${status}`,
         workspace: workspace || 'second_round'
       }));
@@ -191,19 +282,19 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+  
   app.post('/api/attendance-records', async (req, res) => {
     try {
       const record = req.body;
-      // Add timestamps if not present
       if (!record.createdAt) record.createdAt = new Date().toISOString();
       if (!record.updatedAt) record.updatedAt = new Date().toISOString();
-
       const result = await db.collection('attendance_records').insertOne(record);
       res.json({ _id: result.insertedId, ...record });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
+
   // --- ATTENDANCE SETTINGS ---
   app.get('/api/attendance-settings', async (req, res) => {
     try {
@@ -215,47 +306,43 @@ async function startServer() {
   });
 
   // --- CHATS ---
-app.get('/api/chats', async (req, res) => {
-  try {
-    const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).toArray();
-    res.json(chats);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST - Send a new chat message
-app.post('/api/chats', async (req, res) => {
-  try {
-    const chatData = req.body;
-    // Add timestamps and ID if not present
-    if (!chatData.createdAt) chatData.createdAt = new Date().toISOString();
-    if (!chatData.read) chatData.read = false;
-    if (!chatData.id) chatData.id = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    
-    const result = await db.collection('chats').insertOne(chatData);
-    res.json({ _id: result.insertedId, ...chatData });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// PUT - Mark message as read
-app.put('/api/chats/:id/read', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await db.collection('chats').updateOne(
-      { id: id },
-      { $set: { read: true } }
-    );
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ error: 'Message not found' });
+  app.get('/api/chats', async (req, res) => {
+    try {
+      const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).toArray();
+      res.json(chats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  });
+
+  app.post('/api/chats', async (req, res) => {
+    try {
+      const chatData = req.body;
+      if (!chatData.createdAt) chatData.createdAt = new Date().toISOString();
+      if (!chatData.read) chatData.read = false;
+      if (!chatData.id) chatData.id = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      const result = await db.collection('chats').insertOne(chatData);
+      res.json({ _id: result.insertedId, ...chatData });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/chats/:id/read', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('chats').updateOne(
+        { id: id },
+        { $set: { read: true } }
+      );
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // --- ACTIVITY LOGS ---
   app.get('/api/activity-logs', async (req, res) => {
@@ -332,12 +419,10 @@ app.put('/api/chats/:id/read', async (req, res) => {
     try {
       const applicants = req.body;
       const docs = Array.isArray(applicants) ? applicants : [applicants];
-
       docs.forEach(doc => {
         if (!doc.createdAt) doc.createdAt = new Date().toISOString();
         if (!doc.updatedAt) doc.updatedAt = new Date().toISOString();
       });
-
       const result = await db.collection('first_round_applicants').insertMany(docs);
       res.json({ insertedIds: result.insertedIds, count: result.insertedCount });
     } catch (error: any) {
@@ -351,16 +436,13 @@ app.put('/api/chats/:id/read', async (req, res) => {
       const updates = req.body;
       updates.updatedAt = new Date().toISOString();
       delete updates._id;
-
       const result = await db.collection('first_round_applicants').updateOne(
         { id: id },
         { $set: updates }
       );
-
       if (result.matchedCount === 0) {
         return res.status(404).json({ error: 'Applicant not found' });
       }
-
       res.json(updates);
     } catch (error: any) {
       console.error('Update error:', error);
@@ -381,11 +463,9 @@ app.put('/api/chats/:id/read', async (req, res) => {
   app.post('/api/first-round/archive', async (req, res) => {
     try {
       const { applicantIds, reportDate, createdBy } = req.body;
-
       const applicants = await db.collection('first_round_applicants')
         .find({ id: { $in: applicantIds } })
         .toArray();
-
       const report = {
         id: `report-${Date.now()}`,
         reportDate: reportDate || new Date().toISOString().split('T')[0],
@@ -394,14 +474,11 @@ app.put('/api/chats/:id/read', async (req, res) => {
         createdAt: new Date().toISOString(),
         createdBy: createdBy || 'system'
       };
-
       await db.collection('first_round_reports').insertOne(report);
-
       await db.collection('first_round_applicants').updateMany(
         { id: { $in: applicantIds } },
         { $set: { status: 'archived', archivedAt: new Date().toISOString() } }
       );
-
       res.json({ success: true, report });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -434,7 +511,6 @@ app.put('/api/chats/:id/read', async (req, res) => {
   // ==================== AI ROUTES ==============================
   // ============================================================
 
-  // Initialize Gemini API lazily
   let aiClient: GoogleGenAI | null = null;
   function getAI() {
     if (!aiClient) {
@@ -450,16 +526,13 @@ app.put('/api/chats/:id/read', async (req, res) => {
   function parseResilientJson(rawText: string | undefined): any {
     if (!rawText) return {};
     let cleaned = rawText.trim();
-
     if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```(json)?/i, "").trim();
     }
     if (cleaned.endsWith("```")) {
       cleaned = cleaned.replace(/```$/, "").trim();
     }
-
     cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
-
     try {
       return JSON.parse(cleaned);
     } catch (err) {
@@ -499,7 +572,6 @@ app.put('/api/chats/:id/read', async (req, res) => {
       const ai = getAI();
       const langInst = getLanguageInstruction(language, true);
       const slicedLogs = Array.isArray(logs) ? logs.slice(0, 15) : [];
-
       const prompt = `
 You are an expert Credit Renewal Assistant for a microfinance renewal operations team.
 Your task is to generate a comprehensive, highly professional, structured operator brief for this customer record:
@@ -519,7 +591,6 @@ ${langInst}
 
 Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anything.
 `;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
@@ -537,7 +608,6 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
           }
         }
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.error("AI Brief Error:", err);
@@ -573,7 +643,6 @@ ${langInst}
 
 Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anything.
 `;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
@@ -606,7 +675,6 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
           }
         }
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.error("AI Executive Report Error:", err);
@@ -620,16 +688,13 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
       const { message, history, customers, logs, username, language, currentUser, attendanceRecords } = req.body;
       const ai = getAI();
       const langInst = getLanguageInstruction(language, false);
-
       const isZewdneh = !!(currentUser?.fullName?.toLowerCase().includes('zewd') || currentUser?.phoneNumber?.toLowerCase().includes('zewd') || currentUser?.role === 'admin');
-
       let historyContext = "";
       if (Array.isArray(history) && history.length > 0) {
         historyContext = "=== RECENT CONVERSATION HISTORY ===\n" +
           history.map((turn: any) => `${turn.sender === 'user' ? 'User/Officer' : 'AI Assistant'}: ${turn.text}`).join("\n") +
           "\n===================================\n\n";
       }
-
       let safetyContext = "";
       if (!isZewdneh) {
         safetyContext = `
@@ -641,7 +706,6 @@ IMPORTANT ACCESS LIMITATIONS FOR THIS USER:
 - Do NOT reveal details, records, or performance about other employees or customers belonging to other portfolios.
 ==============================================`;
       }
-
       const contextPrompt = `
 You are the Digaf AI Operations Assistant, an integrated digital strategist built into the Renewals tracker.
 You have live, direct action-taking capabilities. When a user tells you to do an update, perform a database task, add a customer, log or delete check-in, or change card details, you MUST generate the corresponding action instructions.
@@ -665,7 +729,6 @@ If the user commands or requests an action, analyze the request and include the 
 
 ${langInst}
 `;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: contextPrompt,
@@ -691,7 +754,6 @@ ${langInst}
           }
         }
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.error("AI Assistant Error:", err);
@@ -717,12 +779,10 @@ Support your narrative with bullet points.
 
 ${langInst}
 `;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: contextPrompt,
       });
-
       res.json({ summary: response.text });
     } catch (err: any) {
       console.error("AI Report Summary Error:", err);
@@ -737,10 +797,8 @@ ${langInst}
       if (!image) {
         return res.status(400).json({ error: "No image payload received." });
       }
-
       const ai = getAI();
       const cleanedBase64 = image.replace(/^data:image\/\w+;base64,/, "");
-
       const promptText = `
 You are an advanced biometric and facial verification assistant.
 Your task is to analyze the attached live selfie image submitted by an employee for checking in or checking out.
@@ -765,19 +823,16 @@ Format your response strictly as a JSON object with this schema:
 
 Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything.
 `;
-
       const contentsList: any[] = [promptText];
       contentsList.push({
         inlineData: { mimeType: "image/jpeg", data: cleanedBase64 }
       });
-
       if (referenceImage) {
         const cleanedRef = referenceImage.replace(/^data:image\/\w+;base64,/, "");
         contentsList.push({
           inlineData: { mimeType: "image/jpeg", data: cleanedRef }
         });
       }
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: contentsList,
@@ -800,7 +855,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
           }
         }
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.warn("AI Selfie Verification fallback activated:", err.message || err);
@@ -823,7 +877,6 @@ Return ONLY the raw JSON object. Do not wrap in markdown or prefix with anything
     try {
       const { prompt, category, username } = req.body;
       const ai = getAI();
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: `
@@ -836,7 +889,6 @@ Operator: ${username || "System"}
 Return ONLY valid SVG code starting with <svg> and ending with </svg>.
 `
       });
-
       let svgText = response.text || "";
       svgText = svgText.trim();
       if (svgText.startsWith("```")) {
@@ -845,7 +897,6 @@ Return ONLY valid SVG code starting with <svg> and ending with </svg>.
       if (svgText.endsWith("```")) {
         svgText = svgText.replace(/```$/, "").trim();
       }
-
       if (!svgText.includes("<svg") || !svgText.includes("</svg>")) {
         svgText = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
           <rect width="500" height="500" fill="#1E1B4B" rx="24"/>
@@ -854,7 +905,6 @@ Return ONLY valid SVG code starting with <svg> and ending with </svg>.
           <text x="250" y="380" fill="white" font-weight="900" font-size="28" text-anchor="middle">DIGAF</text>
         </svg>`;
       }
-
       const svgBase64 = Buffer.from(svgText).toString("base64");
       res.json({ base64: svgBase64, mimeType: "image/svg+xml" });
     } catch (err: any) {
@@ -869,7 +919,6 @@ Return ONLY valid SVG code starting with <svg> and ending with </svg>.
       const { image, language } = req.body;
       const ai = getAI();
       const langInst = getLanguageInstruction(language, true);
-
       const promptText = `
 You are the Digaf AI Smart Contract Auditor. Extract borrower information from the contract document.
 
@@ -896,7 +945,6 @@ Return JSON with this schema:
 
 ${langInst}
 `;
-
       let contents: any[] = [];
       if (image && typeof image === 'string') {
         const cleanedBase64 = image.replace(/^data:image\/\w+;base64,/, "");
@@ -907,12 +955,10 @@ ${langInst}
       } else {
         contents = [promptText + "\n[System: Analyze sample contract for Birtukan Assefa signed on 27/09/2018 with principal 7000 ETB, service fee 500, phone 0586248521, due date 27/10/2018]"];
       }
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: contents,
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.error("AI Contract Audit Error:", err);
@@ -935,7 +981,6 @@ ${langInst}
       const { userPrompt, language, currentState } = req.body;
       const ai = getAI();
       const langInst = getLanguageInstruction(language, true);
-
       const promptText = `
 You are the Digaf AI Smart Contract Editor. Edit contract parameters based on the user's request.
 
@@ -968,7 +1013,6 @@ Return JSON with all fields:
 
 ${langInst}
 `;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: promptText,
@@ -990,7 +1034,6 @@ ${langInst}
           }
         }
       });
-
       res.json(parseResilientJson(response.text));
     } catch (err: any) {
       console.error("AI Edit Contract Error:", err);
@@ -1005,27 +1048,18 @@ ${langInst}
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-
-    // Serve frontend only for non-API routes
-    if (process.env.NODE_ENV === "production") {
-      const distPath = path.join(process.cwd(), "dist");
-      app.use(express.static(distPath));
-
-      app.get("*", (req, res) => {
-        // Skip API routes - they're already handled above
-        if (req.path.startsWith("/api")) {
-          return res.status(404).json({ error: "API endpoint not found" });
-        }
-        res.sendFile(path.join(distPath, "index.html"));
-      });
-    }
+    app.get("*", (req, res) => {
+      if (req.path.startsWith("/api")) {
+        return res.status(404).json({ error: "API endpoint not found" });
+      }
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-
     app.get("*", async (req, res, next) => {
       if (req.path.startsWith("/api") || req.path.includes(".")) {
         return next();
