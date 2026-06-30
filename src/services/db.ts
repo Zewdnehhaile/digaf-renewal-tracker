@@ -1,6 +1,6 @@
 // src/services/db.ts
-//const API_BASE_URL = 'https://digaf-api.onrender.com/api';
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://digaf-api.onrender.com/api';
+//const API_BASE_URL = 'http://localhost:3000/api';
 const toArray = (docs: any[]) => docs.map((doc: any) => {
   // If the document has both _id and id, preserve both
   // If it only has _id, use it as id
