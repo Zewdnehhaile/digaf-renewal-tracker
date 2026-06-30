@@ -373,3 +373,43 @@ export interface FirstRoundReport {
   createdBy: string;
 }
 
+// ==================== BLACKLIST ====================
+export interface BlacklistEntry {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  reason: string;
+  dateAdded: string;
+  addedBy: string;
+  notes: string;
+  status: 'Blocked' | 'Approved';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ==================== GUARANTOR ====================
+export interface Guarantor {
+  id: string;
+  guarantorName: string;
+  phoneNumber: string;
+  customerName: string;
+  customerId: string;
+  assignmentDate: string;
+  expiryDate: string;
+  status: 'Active' | 'Expired';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ==================== NON BORROWER ====================
+export interface NonBorrower {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  workPosition: string;
+  company: string;
+  notes: string;
+  dateAdded: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

@@ -13,11 +13,12 @@ import FollowUpToday from './components/FollowUpToday';
 import ReportsView from './components/ReportsView';
 import LoginScreen from './components/LoginScreen';
 import AdminDashboard from './components/AdminDashboard';
-import AIAssistantDrawer from './components/AIAssistantDrawer';
-import AttendanceDisplay from './components/AttendanceDisplay';
-import AttendanceModule from './components/AttendanceModule';
-import ChatRoom from './components/ChatRoom';
 
+
+import ChatRoom from './components/ChatRoom';
+import BlacklistManager from './components/BlacklistManager';
+import GuarantorManager from './components/GuarantorManager';
+import NonBorrowerRegistry from './components/NonBorrowerRegistry';
 import {
   Building2,
   LayoutDashboard,
@@ -40,14 +41,15 @@ import {
   AlertTriangle,
   Clock,
   Globe,
-  QrCode,
-  Monitor,
   Sun,
   Moon,
   Eye,
   Sliders,
   MessageSquare,
   ShieldCheck,
+  UserCheck,
+  Users,
+  Monitor,
 } from 'lucide-react';
 
 export default function App() {
@@ -175,67 +177,21 @@ export default function App() {
     return () => clearTimeout(bounceTimer);
   }, []);
 
-  // Synchronize and verify current user status with database
-  //useEffect(() => {
-    //if (!currentUser) return;
-    //let isSubscribed = true;
-
-    //const syncUser = async () => {
-      //setIsVerifying(true);
-      //try {
-        //const freshUser = await dbService.getUser(currentUser.phoneNumber);
-        //if (!isSubscribed) return;
-
-       // if (!freshUser || freshUser.status === 'deactive') {
-         // setCurrentUser(null);
-          //localStorage.removeItem('digaf_remembered_session');
-          //return;
-        //}
-
-        //if (freshUser && freshUser.workspace === 'first_round' && freshUser.role !== 'admin' && freshUser.role !== 'super_admin') {
-         // setCurrentRound('first');
-         // setActiveTab('first_round_queue');
-//        }
-///
-     //   if (
-   //       freshUser.role !== currentUser.role ||
-          //freshUser.hasRenewalTrackerAccess !== currentUser.hasRenewalTrackerAccess ||
-          //freshUser.deviceApproved !== currentUser.deviceApproved ||
-        //  freshUser.deviceSignature !== currentUser.deviceSignature
-      //  ) {
-          //setCurrentUser(freshUser);
-         // localStorage.setItem('digaf_remembered_session', JSON.stringify(freshUser));
-       // }
-     // } catch (err) {
-     //   console.warn("Database sync failure. Retaining local session state.", err);
-     // }
-      //finally {
-    //    setIsVerifying(false); // ADD THIS - Hide loading
-  //    }
-//
-    //};
-
-    //syncUser();
-    //return () => { isSubscribed = false; };
-  //}, [currentUser?.phoneNumber]);
-
-  // Redirect attendance-only employees and FTD away from dashboard index
+  // Auto-redirect First Round users to their queue
   useEffect(() => {
-    const isFTD = currentUser?.role === 'FTD' || currentUser?.customRole === 'FTD';
-    if (currentUser && (currentUser.hasRenewalTrackerAccess === false || isFTD) && activeTab !== 'attendance' && activeTab !== 'chat') {
-      setActiveTab('attendance');
-    }
-  }, [currentUser, activeTab]);
+    if (!currentUser) return;
 
-  // Handle QR scanning auto-routing
-  useEffect(() => {
-    if (currentUser) {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('qrScan') === 'true' && activeTab !== 'attendance') {
-        setActiveTab('attendance');
-      }
+    // If user is First Round only (not admin/super_admin)
+    if (currentUser.workspace === 'first_round' &&
+      currentUser.role !== 'admin' &&
+      currentUser.role !== 'super_admin') {
+      setCurrentRound('first');
+      setActiveTab('first_round_queue');
     }
   }, [currentUser]);
+
+
+
 
   // Automatically monitor page interaction inputs for secure logout
   useEffect(() => {
@@ -270,60 +226,57 @@ export default function App() {
     };
   }, [currentUser, lastActivity]);
 
-// Subscribe to Real-Time PubSub MongoDB Streams - DELAYED FOR FASTER LOGIN
-// Subscribe to Real-Time PubSub - SEQUENTIAL LOADING (one at a time)
-// Subscribe to Real-Time PubSub - ONLY RUN AFTER LOGIN
-// Subscribe to Real-Time PubSub - LOAD AFTER LOGIN WITH NO DELAY
-useEffect(() => {
-  // ONLY run if user is logged in
-  if (!currentUser) return;
+  // Subscribe to Real-Time PubSub MongoDB Streams
+  useEffect(() => {
+    // ONLY run if user is logged in
+    if (!currentUser) return;
 
-  let isMounted = true;
+    let isMounted = true;
 
-  console.log('User logged in - loading data...');
+    console.log('User logged in - loading data...');
 
-  // Load customers IMMEDIATELY
-  const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
-    if (!isMounted) return;
-    const todayStr = getTodayDateString();
-    for (const cust of updatedCustomers) {
-      if (cust.status === 'No Response' && cust.followUpDate && cust.followUpDate <= todayStr) {
-        try {
-          await dbService.updateCustomer(cust.id, { status: 'Renewal Processing' }, 'System Auto-Shift');
-        } catch (e) {
-          console.error("Auto-shift from No Response failed:", e);
+    // Load customers IMMEDIATELY
+    const unsubCustomers = dbService.subscribeCustomers(async (updatedCustomers) => {
+      if (!isMounted) return;
+      const todayStr = getTodayDateString();
+      for (const cust of updatedCustomers) {
+        if (cust.status === 'No Response' && cust.followUpDate && cust.followUpDate <= todayStr) {
+          try {
+            await dbService.updateCustomer(cust.id, { status: 'Renewal Processing' }, 'System Auto-Shift');
+          } catch (e) {
+            console.error("Auto-shift from No Response failed:", e);
+          }
         }
       }
-    }
-    setCustomers(updatedCustomers);
-  });
+      setCustomers(updatedCustomers);
+    });
 
-  // Load logs IMMEDIATELY
-  const unsubLogs = dbService.subscribeLogs((updatedLogs) => {
-    if (!isMounted) return;
-    setLogs(updatedLogs);
-  });
+    // Load logs IMMEDIATELY
+    const unsubLogs = dbService.subscribeLogs((updatedLogs) => {
+      if (!isMounted) return;
+      setLogs(updatedLogs);
+    });
 
-  // Load AI config IMMEDIATELY
-  const unsubAIConfig = dbService.subscribeAIConfig((loadedConfig) => {
-    if (!isMounted) return;
-    setAiConfig(loadedConfig);
-  });
+    // Load AI config IMMEDIATELY
+    const unsubAIConfig = dbService.subscribeAIConfig((loadedConfig) => {
+      if (!isMounted) return;
+      setAiConfig(loadedConfig);
+    });
 
-  // Load permissions IMMEDIATELY
-  const unsubPermissions = dbService.subscribeOfficerPermissions((loadedPerms) => {
-    if (!isMounted) return;
-    setOfficerPermissions(loadedPerms);
-  });
+    // Load permissions IMMEDIATELY
+    const unsubPermissions = dbService.subscribeOfficerPermissions((loadedPerms) => {
+      if (!isMounted) return;
+      setOfficerPermissions(loadedPerms);
+    });
 
-  return () => {
-    isMounted = false;
-    unsubCustomers();
-    unsubLogs();
-    unsubAIConfig();
-    unsubPermissions();
-  };
-}, [currentUser]);// <<< IMPORTANT: Runs when currentUser changes
+    return () => {
+      isMounted = false;
+      unsubCustomers();
+      unsubLogs();
+      unsubAIConfig();
+      unsubPermissions();
+    };
+  }, [currentUser]);
 
   // Fetch First Round counts
   useEffect(() => {
@@ -407,7 +360,7 @@ useEffect(() => {
 
   const handleLogout = () => {
     localStorage.removeItem('digaf_remembered_session');
-     localStorage.removeItem('digaf_cached_users');
+    localStorage.removeItem('digaf_cached_users');
     setCurrentUser(null);
     setInactivityNotice('');
   };
@@ -478,6 +431,28 @@ useEffect(() => {
       badge: null,
       badgeColor: ''
     },
+    {
+      id: 'blacklist',
+      label: 'Blacklist Manager',
+      icon: ShieldAlert,
+      badge: null,
+      badgeColor: ''
+    },
+    {
+      id: 'guarantor',
+      label: 'Guarantor Manager',
+      icon: UserCheck,
+      badge: null,
+      badgeColor: ''
+    },
+    {
+      id: 'nonborrower',
+      label: 'Non-Borrower Registry',
+      icon: Users,
+      badge: null,
+      badgeColor: ''
+    },
+
     ...(isAdminStaff ? [{
       id: 'admin',
       label: 'Admin Console',
@@ -487,15 +462,7 @@ useEffect(() => {
     }] : [])
   ];
 
-  const attendanceItems = [
-    {
-      id: 'attendance',
-      label: 'Attendance Desk',
-      icon: CalendarClock,
-      badge: null,
-      badgeColor: ''
-    }
-  ];
+
 
   const chatItems = [
     {
@@ -508,20 +475,7 @@ useEffect(() => {
   ];
 
   // ===== CONDITIONAL RETURNS (AFTER ALL HOOKS) =====
-  const isAttendanceDisplayRoute = typeof window !== 'undefined' &&
-    !window.location.search.includes('qrScan=true') &&
-    (window.location.pathname === '/attendance-display' ||
-      window.location.hash === '#/attendance-display' ||
-      window.location.search.includes('attendance-display'));
 
-  if (isAttendanceDisplayRoute) {
-    return (
-      <>
-        {renderComfortOverlays()}
-        <AttendanceDisplay />
-      </>
-    );
-  }
 
   if (!currentUser) {
     return (
@@ -1019,50 +973,7 @@ useEffect(() => {
             )}
 
             {/* Category 4: Attendance Desk */}
-            <div className="space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
-                {language === 'am' ? 'የመገኘት መቆጣጠሪያ' : language === 'om' ? 'ALTAAJII' : 'ATTENDANCE'}
-              </div>
-              <nav className="space-y-1">
-                {attendanceItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigate(item.id)}
-                      className={`
-                        w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                        ${isActive
-                          ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-                          : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
-                        }
-                      `}
-                      id={`sidebar_link_${item.id}`}
-                    >
-                      {isActive && (
-                        <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-                      )}
-                      <div className="flex items-center gap-2 bg-transparent">
-                        <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
-                        <span className="text-left leading-normal">{t(item.label)}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-                {isAdminStaff && (
-                  <button
-                    onClick={() => window.open('/?attendance-display', '_blank')}
-                    className="w-full flex items-center justify-between p-2 rounded-xl text-[12px] font-bold tracking-tight transition-all cursor-pointer border border-dashed border-violet-200 bg-violet-50/15 text-[#8B5CF6] hover:bg-violet-50 hover:text-violet-950 pl-8"
-                  >
-                    <div className="flex items-center gap-2 bg-transparent">
-                      <Monitor className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                      <span className="text-left leading-normal">{t('Launch QR Kiosk')} ↗</span>
-                    </div>
-                  </button>
-                )}
-              </nav>
-            </div>
+
 
             {/* Category 5: Communications */}
             <div className="space-y-2">
@@ -1078,12 +989,12 @@ useEffect(() => {
                       key={item.id}
                       onClick={() => handleNavigate(item.id)}
                       className={`
-                        w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                        ${isActive
+            w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+            ${isActive
                           ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
                           : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
                         }
-                      `}
+          `}
                       id={`sidebar_link_${item.id}`}
                     >
                       {isActive && (
@@ -1096,6 +1007,19 @@ useEffect(() => {
                     </button>
                   );
                 })}
+                {/* Attendance Link */}
+                <a
+                  href="/attendance"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950 pl-8"
+                >
+                  <div className="flex items-center gap-2 bg-transparent">
+                    <CalendarClock className="w-4 h-4 text-slate-400" />
+                    <span className="text-left leading-normal">{t('Attendance Desk')}</span>
+                  </div>
+                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">↗</span>
+                </a>
               </nav>
             </div>
           </div>
@@ -1225,6 +1149,7 @@ useEffect(() => {
               aiConfig={aiConfig}
               officerPermissions={officerPermissions}
               onRefresh={refreshCustomers}
+              currentWorkspace={currentRound === 'second' ? 'second_round' : 'first_round'}
             />
           )}
 
@@ -1244,6 +1169,18 @@ useEffect(() => {
             />
           )}
 
+          {activeTab === 'blacklist' && (
+            <BlacklistManager currentUser={currentUser!} />
+          )}
+
+          {activeTab === 'guarantor' && (
+            <GuarantorManager currentUser={currentUser!} />
+          )}
+
+          {activeTab === 'nonborrower' && (
+            <NonBorrowerRegistry currentUser={currentUser!} />
+          )}
+
           {activeTab === 'admin' && isAdminStaff && (
             <AdminDashboard
               currentUser={currentUser!}
@@ -1252,11 +1189,7 @@ useEffect(() => {
             />
           )}
 
-          {activeTab === 'attendance' && (
-            <AttendanceModule
-              currentUser={currentUser!}
-            />
-          )}
+
 
           {activeTab === 'chat' && (
             <ChatRoom
@@ -1266,16 +1199,7 @@ useEffect(() => {
         </main>
       </div>
 
-      {/* Floating AI Assistant panel container */}
-      {currentUser && (
-        <AIAssistantDrawer
-          currentUser={currentUser}
-          customers={secureCustomersForUser}
-          logs={logs}
-          aiConfig={aiConfig}
-          officerPermissions={officerPermissions}
-        />
-      )}
+      {/* AI Assistant - REMOVED */}
     </div>
   );
 }

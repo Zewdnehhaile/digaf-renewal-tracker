@@ -5,21 +5,21 @@ import { soundService } from '../services/sound';
 import AttendanceExceptionsView from './AttendanceExceptionsView';
 import { verifyClockSynchronization, logSecurityAnomaly } from '../utils/security';
 import { hashPassword } from '../utils/security';
-import { 
-  Clock, 
-  MapPin, 
-  Calendar, 
-  FileText, 
-  Users, 
-  Settings, 
-  QrCode, 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
-  Send, 
-  Sliders, 
-  Smartphone, 
-  ShieldAlert, 
+import {
+  Clock,
+  MapPin,
+  Calendar,
+  FileText,
+  Users,
+  Settings,
+  QrCode,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Send,
+  Sliders,
+  Smartphone,
+  ShieldAlert,
   RefreshCw,
   TrendingUp,
   MapPinOff,
@@ -40,12 +40,12 @@ function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: nu
   const R = 6371000; // Earth radius in meters
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; 
+  return R * c;
 }
 
 interface ParsedUA {
@@ -139,10 +139,10 @@ const isExcludedUser = (fullName: string, phoneNumber: string) => {
     '918004358', '931443655', '948811166', '969875646'
   ]);
   const excludedNames = [
-    'kidusyared', 'liku', 'raji', 'natnael', 'sintayehu', 
+    'kidusyared', 'liku', 'raji', 'natnael', 'sintayehu',
     'yohannes', 'mengistu', 'sime', 'suraf', 'amanuel', 'yeshineh', 'sami'
   ];
-  
+
   if (excludedPhones.has(phoneNumber)) return true;
   if (excludedPhones.has(phoneClean)) return true;
   if (excludedNames.some(name => lowerName.includes(name))) return true;
@@ -293,7 +293,7 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
 
   const [isScannedCheckIn, setIsScannedCheckIn] = useState<boolean>(false);
   const [countdownSeconds, setCountdownSeconds] = useState<number>(30);
-  
+
   const [useMockLocation, setUseMockLocation] = useState<boolean>(isAdminOrSuper);
   const [mockGPSDistance, setMockGPSDistance] = useState<'inside' | 'outside'>('inside');
   const [manualLat, setManualLat] = useState<string>('');
@@ -365,28 +365,28 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
     if (showSelfieModal) {
       setSelfieError(null);
       setCapturedImageBase64(null);
-      
+
       const timer = setTimeout(() => {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              width: 400, 
-              height: 300, 
-              facingMode: 'user' 
-            } 
-          })
-          .then(stream => {
-            if (selfieVideoRef.current) {
-              selfieVideoRef.current.srcObject = stream;
-              selfieVideoRef.current.play().catch(err => {
-                console.error("Video play failed:", err);
-              });
+          navigator.mediaDevices.getUserMedia({
+            video: {
+              width: 400,
+              height: 300,
+              facingMode: 'user'
             }
           })
-          .catch(err => {
-            console.error("Camera access failed:", err);
-            setSelfieError("Camera permission is required for attendance verification.");
-          });
+            .then(stream => {
+              if (selfieVideoRef.current) {
+                selfieVideoRef.current.srcObject = stream;
+                selfieVideoRef.current.play().catch(err => {
+                  console.error("Video play failed:", err);
+                });
+              }
+            })
+            .catch(err => {
+              console.error("Camera access failed:", err);
+              setSelfieError("Camera permission is required for attendance verification.");
+            });
         } else {
           setSelfieError("Your device browser does not support media capture APIs.");
         }
@@ -407,25 +407,25 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
       setFaceRegError(null);
       setFaceRegSuccess(null);
       setCapturedRegBase64(null);
-      
+
       const timer = setTimeout(() => {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ 
-            video: { 
+          navigator.mediaDevices.getUserMedia({
+            video: {
               facingMode: "user",
               width: { ideal: 640 },
               height: { ideal: 480 }
-            } 
-          })
-          .then(stream => {
-            if (faceRegVideoRef.current) {
-              faceRegVideoRef.current.srcObject = stream;
             }
           })
-          .catch(err => {
-            console.error("Camera access failed:", err);
-            setFaceRegError("Could not connect to workstation camera. Please verify device permissions.");
-          });
+            .then(stream => {
+              if (faceRegVideoRef.current) {
+                faceRegVideoRef.current.srcObject = stream;
+              }
+            })
+            .catch(err => {
+              console.error("Camera access failed:", err);
+              setFaceRegError("Could not connect to workstation camera. Please verify device permissions.");
+            });
         } else {
           setFaceRegError("Media capture API is not supported on this workstation browser.");
         }
@@ -454,7 +454,7 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
     // Use the fallback for correction requests
     const unsubCorrections = dbService.subscribeCorrectionRequests?.((data) => {
       setCorrectionRequests(data);
-    }) || (() => {});
+    }) || (() => { });
 
     const unsubSettings = dbService.subscribeAttendanceSettings((data) => {
       setSettings(data);
@@ -510,7 +510,7 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
       setIsScannedCheckIn(true);
       setCountdownSeconds(30);
       const qrWindowName = params.get('window') as 'Morning' | 'Afternoon' | undefined;
-      
+
       const timer = setTimeout(() => {
         handleCheckIn(qrWindowName);
       }, 1500);
@@ -1135,14 +1135,14 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
         });
         latestRecord = sortedRecords.find(r => !!r.deviceInformation);
       }
-      
+
       const userDoc = await dbService.getUser(phoneNumber);
       const existingSigs = userDoc?.deviceSignature
         ? userDoc.deviceSignature.split(',').map((s: string) => s.trim()).filter(Boolean)
         : [];
 
       const reason = window.prompt("Enter Device Approval Justification Reason:", "Authorized Office PC / Workstation Signature matches employee ledger") || "Authorized Office PC";
-      const updates: any = { 
+      const updates: any = {
         deviceApproved: true,
         deviceApprovedBy: currentUser.fullName,
         deviceApprovedDate: new Date().toISOString(),
@@ -1159,7 +1159,7 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
         }
         updates.deviceSignature = existingSigs.join(',');
       }
-      
+
       await dbService.updateUser(phoneNumber, updates);
       showFeedback("Successfully approved employee's current device signature!");
       soundService.playSuccessChime();
@@ -1184,65 +1184,65 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
   };
 
   // Profile password change
- // In AttendanceModule.tsx, find the handleProfilePasswordChange function
-// Replace the verification section (around lines 893-903)
+  // In AttendanceModule.tsx, find the handleProfilePasswordChange function
+  // Replace the verification section (around lines 893-903)
 
-const handleProfilePasswordChange = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setProfileSuccess('');
-  setProfileError('');
+  const handleProfilePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSuccess('');
+    setProfileError('');
 
-  if (!profileCurrentPassword || !profileNewPassword || !profileConfirmPassword) {
-    setProfileError('Please fill in all security credential inputs.');
-    return;
-  }
-
-  if (profileNewPassword !== profileConfirmPassword) {
-    setProfileError('Confirmation password does not match.');
-    return;
-  }
-
-  if (profileNewPassword.length < 4) {
-    setProfileError('New password must be at least 4 characters long.');
-    return;
-  }
-
-  try {
-    const userObj = await dbService.getUser(currentUser.phoneNumber);
-    if (!userObj) {
-      setProfileError('Profile record not verified in database.');
+    if (!profileCurrentPassword || !profileNewPassword || !profileConfirmPassword) {
+      setProfileError('Please fill in all security credential inputs.');
       return;
     }
 
-    // --- FIX: Proper password verification ---
-    // Check if the current password matches either stored password or passwordHash
-    const isCurrentPasswordValid = 
-      userObj.password === profileCurrentPassword || 
-      userObj.passwordHash === profileCurrentPassword;
-
-    if (!isCurrentPasswordValid) {
-      setProfileError('Current password entered is incorrect.');
+    if (profileNewPassword !== profileConfirmPassword) {
+      setProfileError('Confirmation password does not match.');
       return;
     }
 
-    // Hash the new password
-    const hashedNewPassword = await hashPassword(profileNewPassword);
+    if (profileNewPassword.length < 4) {
+      setProfileError('New password must be at least 4 characters long.');
+      return;
+    }
 
-    // Update both password fields for compatibility
-    await dbService.updateUser(currentUser.phoneNumber, {
-      password: profileNewPassword, // Store plain text for backward compatibility
-      passwordHash: hashedNewPassword, // Store hashed version for security
-    });
+    try {
+      const userObj = await dbService.getUser(currentUser.phoneNumber);
+      if (!userObj) {
+        setProfileError('Profile record not verified in database.');
+        return;
+      }
 
-    setProfileSuccess('Your profile login password has been successfully updated!');
-    setProfileCurrentPassword('');
-    setProfileNewPassword('');
-    setProfileConfirmPassword('');
-    soundService.playSuccessChime();
-  } catch (err: any) {
-    setProfileError(`Could not modify security keys. ${err.message || ''}`);
-  }
-};
+      // --- FIX: Proper password verification ---
+      // Check if the current password matches either stored password or passwordHash
+      const isCurrentPasswordValid =
+        userObj.password === profileCurrentPassword ||
+        userObj.passwordHash === profileCurrentPassword;
+
+      if (!isCurrentPasswordValid) {
+        setProfileError('Current password entered is incorrect.');
+        return;
+      }
+
+      // Hash the new password
+      const hashedNewPassword = await hashPassword(profileNewPassword);
+
+      // Update both password fields for compatibility
+      await dbService.updateUser(currentUser.phoneNumber, {
+        password: profileNewPassword, // Store plain text for backward compatibility
+        passwordHash: hashedNewPassword, // Store hashed version for security
+      });
+
+      setProfileSuccess('Your profile login password has been successfully updated!');
+      setProfileCurrentPassword('');
+      setProfileNewPassword('');
+      setProfileConfirmPassword('');
+      soundService.playSuccessChime();
+    } catch (err: any) {
+      setProfileError(`Could not modify security keys. ${err.message || ''}`);
+    }
+  };
   // Leave submit
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1322,7 +1322,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setCorrectionError('');
     setCorrectionSuccess('');
-    
+
     if (!correctionReason.trim()) {
       setCorrectionError('Please enter a valid justification or reason for this manual correction.');
       return;
@@ -1462,16 +1462,16 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
   // Toggle chatbot
   const handleToggleChatbot = async (staffPhone: string, staffName: string) => {
     const existingPerm = officerPermissions.find(p => p.phoneNumber === staffPhone);
-    const updatedPerm: OfficerAIPermission = existingPerm 
+    const updatedPerm: OfficerAIPermission = existingPerm
       ? { ...existingPerm }
       : {
-          phoneNumber: staffPhone,
-          fullName: staffName,
-          customerBriefAllowed: false,
-          imageGenerationAllowed: false,
-          assistantPanelAllowed: true,
-          aiReportsAllowed: false,
-        };
+        phoneNumber: staffPhone,
+        fullName: staffName,
+        customerBriefAllowed: false,
+        imageGenerationAllowed: false,
+        assistantPanelAllowed: true,
+        aiReportsAllowed: false,
+      };
 
     const nextVal = !updatedPerm.assistantPanelAllowed;
     updatedPerm.assistantPanelAllowed = nextVal;
@@ -1549,7 +1549,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       showFeedback("No reports to export.", "error");
       return;
     }
-    
+
     const getExportRole = (role: string) => {
       const cleaned = (role || '').trim().toLowerCase();
       if (cleaned === 'system_admin' || cleaned === 'super_admin' || cleaned === 'admin' || cleaned === 'system owner') {
@@ -1557,34 +1557,34 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       }
       return role || 'Digital Loan Officer';
     };
-    
+
     const headers = [
-      "Employee Name", 
-      "Role", 
-      "Phone Number", 
-      "Date", 
-      "Swipe Time", 
-      "Session", 
-      "Status", 
-      "GPS Distance", 
-      "Device Name", 
-      "Selfie Verification Result", 
-      "Number of Posts", 
-      "Completed Tasks", 
-      "Remaining Tasks", 
-      "First Round Workload", 
+      "Employee Name",
+      "Role",
+      "Phone Number",
+      "Date",
+      "Swipe Time",
+      "Session",
+      "Status",
+      "GPS Distance",
+      "Device Name",
+      "Selfie Verification Result",
+      "Number of Posts",
+      "Completed Tasks",
+      "Remaining Tasks",
+      "First Round Workload",
       "Second Round Workload"
     ];
-    
+
     const rows = records.map(r => {
       const postsCount = customers.filter(c => c.addedBy === r.phoneNumber || c.addedBy === r.employeeName).length;
       const completedTasksCount = workAssignments.filter(w => w.assignedTo === r.phoneNumber && (w.status === 'Completed' || w.status === 'COMPLETED')).length;
       const remainingTasksCount = workAssignments.filter(w => w.assignedTo === r.phoneNumber && !(w.status === 'Completed' || w.status === 'COMPLETED')).length;
       const firstRoundCount = customers.filter(c => (c.addedBy === r.phoneNumber || c.addedBy === r.employeeName) && c.workspace === 'first_round').length;
       const secondRoundCount = customers.filter(c => (c.addedBy === r.phoneNumber || c.addedBy === r.employeeName) && c.workspace === 'second_round').length;
-      
-      const selfieResult = r.verificationResult 
-        ? "PASSED (Confidence matching high)" 
+
+      const selfieResult = r.verificationResult
+        ? "PASSED (Confidence matching high)"
         : (r.selfieImageUrl ? "PASSED (Face Profile Synced)" : "N/A (Bypassed Or Legacy)");
 
       return [
@@ -1605,7 +1605,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
         `"${secondRoundCount}"`
       ];
     });
-    
+
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1623,7 +1623,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       showFeedback("No reports to export.", "error");
       return;
     }
-    
+
     const getExportRole = (role: string) => {
       const cleaned = (role || '').trim().toLowerCase();
       if (cleaned === 'system_admin' || cleaned === 'super_admin' || cleaned === 'admin' || cleaned === 'system owner') {
@@ -1631,7 +1631,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       }
       return role || 'Digital Loan Officer';
     };
-    
+
     const excelHeader = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
@@ -1643,7 +1643,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       </head>
       <body>
     `;
-    
+
     let tableHtml = `
       <table>
         <thead>
@@ -1667,16 +1667,16 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
         </thead>
         <tbody>
     `;
-      
+
     records.forEach(r => {
       const postsCount = customers.filter(c => c.addedBy === r.phoneNumber || c.addedBy === r.employeeName).length;
       const completedTasksCount = workAssignments.filter(w => w.assignedTo === r.phoneNumber && (w.status === 'Completed' || w.status === 'COMPLETED')).length;
       const remainingTasksCount = workAssignments.filter(w => w.assignedTo === r.phoneNumber && !(w.status === 'Completed' || w.status === 'COMPLETED')).length;
       const firstRoundCount = customers.filter(c => (c.addedBy === r.phoneNumber || c.addedBy === r.employeeName) && c.workspace === 'first_round').length;
       const secondRoundCount = customers.filter(c => (c.addedBy === r.phoneNumber || c.addedBy === r.employeeName) && c.workspace === 'second_round').length;
-      
-      const selfieResult = r.verificationResult 
-        ? "PASSED (Confidence matching high)" 
+
+      const selfieResult = r.verificationResult
+        ? "PASSED (Confidence matching high)"
         : (r.selfieImageUrl ? "PASSED (Face Profile Synced)" : "N/A (Bypassed Or Legacy)");
 
       tableHtml += `
@@ -1699,14 +1699,14 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
         </tr>
       `;
     });
-    
+
     tableHtml += `
         </tbody>
       </table>
       </body>
       </html>
     `;
-    
+
     const blob = new Blob([excelHeader + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1727,16 +1727,16 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
     const todayRecords = records.filter(r => r.date === todayStr);
 
     const presentsToday = todayRecords.filter(r => r.status === 'Present' || r.status === 'Afternoon Present');
-    const latesToday = todayRecords.filter(r => 
-      r.status === 'Late' || 
-      r.status === 'Afternoon Late' || 
-      r.status === 'Very Late' || 
-      r.status === 'VERY LATE' || 
-      r.status === 'Admin Approval Required' || 
-      r.status === 'Afternoon Admin Approval Required' || 
+    const latesToday = todayRecords.filter(r =>
+      r.status === 'Late' ||
+      r.status === 'Afternoon Late' ||
+      r.status === 'Very Late' ||
+      r.status === 'VERY LATE' ||
+      r.status === 'Admin Approval Required' ||
+      r.status === 'Afternoon Admin Approval Required' ||
       r.status === 'New Device Pending Approval'
     );
-    
+
     const scannedPhoneNumbers = new Set(todayRecords.map(r => r.phoneNumber));
     const absentsToday = activeStaff.filter(s => !scannedPhoneNumbers.has(s.phoneNumber));
 
@@ -1750,11 +1750,11 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
         if (r.status === 'Present' || r.status === 'Afternoon Present') {
           rankingMap[r.phoneNumber].presentCount++;
         } else if (
-          r.status === 'Late' || 
-          r.status === 'Afternoon Late' || 
-          r.status === 'Very Late' || 
-          r.status === 'VERY LATE' || 
-          r.status === 'Admin Approval Required' || 
+          r.status === 'Late' ||
+          r.status === 'Afternoon Late' ||
+          r.status === 'Very Late' ||
+          r.status === 'VERY LATE' ||
+          r.status === 'Admin Approval Required' ||
           r.status === 'Afternoon Admin Approval Required'
         ) {
           rankingMap[r.phoneNumber].lateCount++;
@@ -1776,7 +1776,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
   if (isScannedCheckIn) {
     const formattedMinutes = Math.floor(countdownSeconds / 60);
     const formattedSecs = String(countdownSeconds % 60).padStart(2, '0');
-    
+
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center p-4 bg-slate-50 animate-fade-in" id="qr_scan_direct_overlay">
         <div className="bg-white rounded-3xl border border-slate-150 p-8 shadow-md max-w-md w-full text-center space-y-6">
@@ -1809,7 +1809,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                       Attendance Recorded Successfully
                     </h3>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-1 text-xs font-sans">
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Employee Name</span>
@@ -1842,14 +1842,13 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                       </span>
                     </div>
                   </div>
-                  
-                  <div className={`mt-3 p-3.5 rounded-2xl text-center border font-sans ${
-                    scanResultText.record.status === 'Present' || scanResultText.record.status === 'Afternoon Present'
-                      ? 'bg-emerald-950/80 border-emerald-500/20 text-emerald-300'
-                      : scanResultText.record.status === 'Late' || scanResultText.record.status === 'Afternoon Late'
-                        ? 'bg-amber-950/80 border-amber-500/20 text-amber-300'
-                        : 'bg-rose-950/80 border-rose-500/20 text-rose-300'
-                  }`}>
+
+                  <div className={`mt-3 p-3.5 rounded-2xl text-center border font-sans ${scanResultText.record.status === 'Present' || scanResultText.record.status === 'Afternoon Present'
+                    ? 'bg-emerald-950/80 border-emerald-500/20 text-emerald-300'
+                    : scanResultText.record.status === 'Late' || scanResultText.record.status === 'Afternoon Late'
+                      ? 'bg-amber-950/80 border-amber-500/20 text-amber-300'
+                      : 'bg-rose-950/80 border-rose-500/20 text-rose-300'
+                    }`}>
                     <span className="text-[10px] uppercase tracking-widest font-black block">Recorded Status</span>
                     <span className="text-base font-black tracking-tight block mt-0.5 uppercase">
                       {scanResultText.record.status.toUpperCase()}
@@ -1885,18 +1884,17 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
 
                   <div className="space-y-2 bg-slate-50/50 border border-slate-150 p-4 rounded-2xl">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Swipe Status Details</span>
-                    <span className={`text-base font-black uppercase tracking-tight block ${
-                      scanResultText.status === 'success'
-                        ? 'text-emerald-600'
-                        : scanResultText.status === 'already_present'
-                          ? 'text-indigo-600'
-                          : scanResultText.status === 'warning'
-                            ? 'text-amber-600'
-                            : 'text-rose-600'
-                    }`}>
+                    <span className={`text-base font-black uppercase tracking-tight block ${scanResultText.status === 'success'
+                      ? 'text-emerald-600'
+                      : scanResultText.status === 'already_present'
+                        ? 'text-indigo-600'
+                        : scanResultText.status === 'warning'
+                          ? 'text-amber-600'
+                          : 'text-rose-600'
+                      }`}>
                       {scanResultText.status === 'success' ? 'PRESENT' : scanResultText.status === 'already_present' ? 'ALREADY PRESENT' : scanResultText.status === 'warning' ? 'LATE COMER' : 'SWIPE REFUSED'}
                     </span>
-                    
+
                     <p className="text-[10.5px] text-slate-600 font-medium leading-relaxed font-sans px-2">
                       {scanResultText.message}
                     </p>
@@ -1925,7 +1923,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="border-t border-slate-200/60 pt-2.5 mt-2 flex flex-col gap-1 text-[10px] text-slate-500 font-mono">
                       <div>Employee: <strong className="text-slate-700 font-sans">{currentUser.fullName}</strong></div>
                       <div>Phone ID: <strong className="text-slate-700">{currentUser.phoneNumber}</strong></div>
@@ -1957,13 +1955,12 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
   // MAIN RENDER
   return (
     <div className="space-y-6 container mx-auto px-1 py-2 animate-fade-in" id="attendance_management_block">
-      
+
       {feedbackMessage && (
-        <div className={`p-3.5 rounded-2xl border text-[10px] uppercase tracking-wider font-extrabold flex items-center justify-between animate-fade-in ${
-          feedbackMessage.type === 'success' 
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-            : 'bg-rose-50 text-rose-800 border-rose-200'
-        }`}>
+        <div className={`p-3.5 rounded-2xl border text-[10px] uppercase tracking-wider font-extrabold flex items-center justify-between animate-fade-in ${feedbackMessage.type === 'success'
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+          : 'bg-rose-50 text-rose-800 border-rose-200'
+          }`}>
           <span>{feedbackMessage.text}</span>
           <button onClick={() => setFeedbackMessage(null)} className="font-extrabold text-[12.5px] opacity-65 hover:opacity-100 px-2 select-none cursor-pointer">✕</button>
         </div>
@@ -2000,11 +1997,10 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                 setLeaveActionSuccess('');
                 setLeaveActionError('');
               }}
-              className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === t.id
-                  ? 'bg-[#8B5CF6] text-white'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${activeTab === t.id
+                ? 'bg-[#8B5CF6] text-white'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                }`}
             >
               {t.label}
             </button>
@@ -2038,7 +2034,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
           </div>
         );
       })()}
-      
+
       {/* TAB CONTENT - CheckIn */}
       {activeTab === 'checkin' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
@@ -2062,9 +2058,8 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   </div>
                   <button
                     onClick={() => setUseMockLocation(!useMockLocation)}
-                    className={`px-2 py-1 rounded text-[9.5px] font-bold font-mono uppercase cursor-pointer ${
-                      useMockLocation ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-205 text-slate-600 border border-slate-300'
-                    }`}
+                    className={`px-2 py-1 rounded text-[9.5px] font-bold font-mono uppercase cursor-pointer ${useMockLocation ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-205 text-slate-600 border border-slate-300'
+                      }`}
                   >
                     {useMockLocation ? 'BYPASS ACTIVE' : 'REAL DEVICE'}
                   </button>
@@ -2076,17 +2071,15 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => setMockGPSDistance('inside')}
-                        className={`px-2 py-1 rounded-md cursor-pointer transition-all ${
-                          mockGPSDistance === 'inside' ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-100 text-slate-500'
-                        }`}
+                        className={`px-2 py-1 rounded-md cursor-pointer transition-all ${mockGPSDistance === 'inside' ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-100 text-slate-500'
+                          }`}
                       >
                         Inside (1.2m)
                       </button>
                       <button
                         onClick={() => setMockGPSDistance('outside')}
-                        className={`px-2 py-1 rounded-md cursor-pointer transition-all ${
-                          mockGPSDistance === 'outside' ? 'bg-rose-500 text-white font-bold' : 'bg-slate-100 text-slate-500'
-                        }`}
+                        className={`px-2 py-1 rounded-md cursor-pointer transition-all ${mockGPSDistance === 'outside' ? 'bg-rose-500 text-white font-bold' : 'bg-slate-100 text-slate-500'
+                          }`}
                       >
                         Outside (45m)
                       </button>
@@ -2111,7 +2104,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
             <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 text-center text-white relative overflow-hidden flex flex-col justify-center items-center gap-5">
               <div className="absolute top-0 right-0 w-64 h-64 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-              
+
               <span className="text-[9px] px-3 py-1 bg-violet-500/15 border border-violet-500/30 font-extrabold uppercase rounded-full text-slate-350 tracking-wider flex items-center gap-1.5 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                 Primary Dispatch Terminal Console
@@ -2137,7 +2130,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Device Signature Audit</span>
                   <span className="font-mono text-[9px] text-[#C4B5FD] font-semibold">{getDeviceSignature()}</span>
                 </div>
-                
+
                 {(() => {
                   const dbUser = users.find(u => u.phoneNumber === currentUser.phoneNumber) || currentUser;
                   if (!dbUser.deviceSignature) {
@@ -2189,11 +2182,10 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   <button
                     onClick={() => handleCheckIn('Afternoon')}
                     disabled={scanning || gpsLoading || eatLive.dayOfWeek === 0 || eatLive.dayOfWeek === 6 || hasAfternoonCheckIn || eatLive.hours < 8}
-                    className={`py-3 px-4 ${
-                      eatLive.dayOfWeek === 6 
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50' 
-                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'
-                    } disabled:opacity-50 text-[10.5px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs`}
+                    className={`py-3 px-4 ${eatLive.dayOfWeek === 6
+                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'
+                      } disabled:opacity-50 text-[10.5px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs`}
                     title={eatLive.dayOfWeek === 6 ? "Saturday does not support Afternoon checkout scans" : "Afternoon Checkout Check-in"}
                   >
                     {gpsLoading ? (
@@ -2245,7 +2237,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           Attendance Recorded Successfully
                         </h4>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-1 text-xs font-sans">
                         <div>
                           <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Employee Name</span>
@@ -2278,14 +2270,13 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           </span>
                         </div>
                       </div>
-                      
-                      <div className={`mt-3 p-3.5 rounded-2xl text-center border font-sans ${
-                        scanResultText.record.status === 'Present' || scanResultText.record.status === 'Afternoon Present'
-                          ? 'bg-emerald-950/80 border-emerald-500/20 text-emerald-300'
-                          : scanResultText.record.status === 'Late' || scanResultText.record.status === 'Afternoon Late'
-                            ? 'bg-amber-950/80 border-amber-500/20 text-amber-300'
-                            : 'bg-rose-950/80 border-rose-500/20 text-rose-300'
-                      }`}>
+
+                      <div className={`mt-3 p-3.5 rounded-2xl text-center border font-sans ${scanResultText.record.status === 'Present' || scanResultText.record.status === 'Afternoon Present'
+                        ? 'bg-emerald-950/80 border-emerald-500/20 text-emerald-300'
+                        : scanResultText.record.status === 'Late' || scanResultText.record.status === 'Afternoon Late'
+                          ? 'bg-amber-950/80 border-amber-500/20 text-amber-300'
+                          : 'bg-rose-950/80 border-rose-500/20 text-rose-300'
+                        }`}>
                         <span className="text-[10px] uppercase tracking-widest font-black block">Recorded Status</span>
                         <span className="text-base font-black tracking-tight block mt-0.5 uppercase">
                           {scanResultText.record.status.toUpperCase()}
@@ -2299,15 +2290,14 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                     </div>
                   ) : (
                     <>
-                      <div className={`mt-2 p-3.5 rounded-2xl border text-[10.5px] leading-relaxed w-full animate-fade-in flex gap-2.5 text-left ${
-                        scanResultText.status === 'success'
-                          ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-400'
-                          : scanResultText.status === 'already_present'
-                            ? 'bg-indigo-950/40 border-indigo-500/20 text-indigo-400'
-                            : scanResultText.status === 'warning'
-                              ? 'bg-amber-950/40 border-amber-500/20 text-[#F59E0B]'
-                              : 'bg-rose-950/40 border-rose-500/20 text-rose-400'
-                      }`}>
+                      <div className={`mt-2 p-3.5 rounded-2xl border text-[10.5px] leading-relaxed w-full animate-fade-in flex gap-2.5 text-left ${scanResultText.status === 'success'
+                        ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-400'
+                        : scanResultText.status === 'already_present'
+                          ? 'bg-indigo-950/40 border-indigo-500/20 text-indigo-400'
+                          : scanResultText.status === 'warning'
+                            ? 'bg-amber-950/40 border-amber-500/20 text-[#F59E0B]'
+                            : 'bg-rose-950/40 border-rose-500/20 text-rose-400'
+                        }`}>
                         {scanResultText.status === 'success' ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                         ) : scanResultText.status === 'already_present' ? (
@@ -2416,13 +2406,12 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           <td className="p-2 text-slate-450 font-mono">{r.gpsCoordinates?.latitude?.toFixed(5) || 'N/A'}, {r.gpsCoordinates?.longitude?.toFixed(5) || 'N/A'}</td>
                           <td className="p-2 text-slate-500 font-mono font-bold">{r.gpsCoordinates?.distanceText || '0m'}</td>
                           <td className="p-2">
-                            <span className={`inline-block text-[8px] px-1.5 py-0.2 rounded font-black uppercase ${
-                              r.status === 'Present' || r.status === 'Afternoon Present'
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-150'
-                                : r.status === 'Late' || r.status === 'Afternoon Late'
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-150'
-                                  : 'bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/20'
-                            }`}>
+                            <span className={`inline-block text-[8px] px-1.5 py-0.2 rounded font-black uppercase ${r.status === 'Present' || r.status === 'Afternoon Present'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-150'
+                              : r.status === 'Late' || r.status === 'Afternoon Late'
+                                ? 'bg-amber-50 text-amber-800 border border-amber-150'
+                                : 'bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/20'
+                              }`}>
                               {r.status}
                             </span>
                           </td>
@@ -2567,8 +2556,8 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
             </h3>
 
             {(() => {
-              const list = isAdminOrSuper 
-                ? leaveRequests 
+              const list = isAdminOrSuper
+                ? leaveRequests
                 : leaveRequests.filter(r => r.phoneNumber === currentUser.phoneNumber);
 
               if (list.length === 0) {
@@ -2591,14 +2580,13 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                             {req.employeeRole} • Phone: {req.phoneNumber}
                           </span>
                         </div>
-                        
-                        <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase border ${
-                          req.status === 'Pending' 
-                            ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                            : req.status === 'Approved' 
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                              : 'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
+
+                        <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase border ${req.status === 'Pending'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : req.status === 'Approved'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}>
                           {req.status}
                         </span>
                       </div>
@@ -2640,7 +2628,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           )}
                         </div>
                       )}
-                      
+
                       {req.status !== 'Pending' && req.reviewedBy && (
                         <div className="text-right text-[8.5px] font-mono text-slate-400 uppercase tracking-tight block">
                           Reviewed by: <strong className="text-slate-600">{req.reviewedBy}</strong>
@@ -2715,8 +2703,8 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                 {isAdminOrSuper ? 'Operator Adjustment Requests' : 'My Security Audits & Corrections'}
               </h3>
               <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 text-[8px] font-black rounded-md font-mono">
-                {isAdminOrSuper 
-                  ? correctionRequests.length 
+                {isAdminOrSuper
+                  ? correctionRequests.length
                   : correctionRequests.filter(r => r.employeePhone === currentUser.phoneNumber).length
                 } TOTAL
               </span>
@@ -2738,15 +2726,14 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
               return (
                 <div className="space-y-3.5 max-h-[480px] overflow-y-auto pr-1">
                   {list.map((req) => (
-                    <div 
-                      key={req.id} 
-                      className={`p-3.5 border rounded-2xl space-y-2 relative transition-all ${
-                        req.status === 'Approved'
-                          ? 'bg-emerald-50/20 border-emerald-150'
-                          : req.status === 'Rejected'
-                            ? 'bg-rose-50/20 border-rose-150'
-                            : 'bg-amber-50/20 border-amber-150'
-                      }`}
+                    <div
+                      key={req.id}
+                      className={`p-3.5 border rounded-2xl space-y-2 relative transition-all ${req.status === 'Approved'
+                        ? 'bg-emerald-50/20 border-emerald-150'
+                        : req.status === 'Rejected'
+                          ? 'bg-rose-50/20 border-rose-150'
+                          : 'bg-amber-50/20 border-amber-150'
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-2.5">
                         <div>
@@ -2755,13 +2742,12 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           <span className="text-[8.5px] text-slate-400 block font-mono mt-0.5">Submitted: {new Date(req.requestedAt).toLocaleString()}</span>
                         </div>
 
-                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md border ${
-                          req.status === 'Approved'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-250'
-                            : req.status === 'Rejected'
-                              ? 'bg-rose-50 text-rose-800 border-rose-250'
-                              : 'bg-amber-50 text-amber-800 border-amber-250'
-                        }`}>
+                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md border ${req.status === 'Approved'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-250'
+                          : req.status === 'Rejected'
+                            ? 'bg-rose-50 text-rose-800 border-rose-250'
+                            : 'bg-amber-50 text-amber-800 border-amber-250'
+                          }`}>
                           {req.status}
                         </span>
                       </div>
@@ -2878,9 +2864,8 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                     )}
 
                     <div className="text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                        dbUser.registeredSelfieUrl ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-250'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${dbUser.registeredSelfieUrl ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-250'
+                        }`}>
                         {dbUser.registeredSelfieUrl ? '✅ Face Profile Bound' : '⚠️ Biometrics Required'}
                       </span>
                     </div>
@@ -2971,7 +2956,17 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       {activeTab === 'dashboard' && isAdminOrSuper && (
         <div className="space-y-6 animate-fade-in text-[10px]">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5">
+            {/* Card 1: Active Registry - Click to show all active staff */}
+            <div
+              onClick={() => {
+                const activeStaffList = users
+                  .filter(u => u.status === 'active' && !isExcludedUser(u.fullName, u.phoneNumber))
+                  .map(u => `• ${u.fullName} (${u.customRole || u.role})`)
+                  .join('\n');
+                alert(`📋 Active Staff (${activeStaffCount}):\n\n${activeStaffList || 'No active staff'}`);
+              }}
+              className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5 cursor-pointer hover:shadow-md transition-all hover:border-indigo-300"
+            >
               <div className="p-3 bg-indigo-50 text-[#8B5CF6] rounded-xl">
                 <Users className="w-5 h-5" />
               </div>
@@ -2981,7 +2976,18 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5">
+            {/* Card 2: Clocked Present - Click to show present employees */}
+            <div
+              onClick={() => {
+                const todayStr = getLocalTodayStr();
+                const presentList = records
+                  .filter(r => r.date === todayStr && (r.status === 'Present' || r.status === 'Afternoon Present'))
+                  .map(r => `• ${r.employeeName} (${r.attendanceType} at ${r.time})`)
+                  .join('\n');
+                alert(`✅ Present Today (${presentsCount}):\n\n${presentList || 'No one checked in yet'}`);
+              }}
+              className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5 cursor-pointer hover:shadow-md transition-all hover:border-emerald-300"
+            >
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
@@ -2991,7 +2997,19 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5">
+            {/* Card 3: Late Scandals - Click to show late employees */}
+            <div
+              onClick={() => {
+                const todayStr = getLocalTodayStr();
+                const lateList = records
+                  .filter(r => r.date === todayStr &&
+                    (r.status === 'Late' || r.status === 'Afternoon Late' || r.status === 'VERY LATE'))
+                  .map(r => `• ${r.employeeName} (${r.status} at ${r.time})`)
+                  .join('\n');
+                alert(`⚠️ Late Today (${latesCount}):\n\n${lateList || 'No late arrivals today'}`);
+              }}
+              className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5 cursor-pointer hover:shadow-md transition-all hover:border-amber-300"
+            >
               <div className="p-3 bg-amber-50 text-amber-650 rounded-xl">
                 <Clock className="w-5 h-5" />
               </div>
@@ -3001,7 +3019,24 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5">
+            {/* Card 4: Absent - Click to show absent employees */}
+            <div
+              onClick={() => {
+                const todayStr = getLocalTodayStr();
+                const todayRecords = records.filter(r => r.date === todayStr);
+                const scannedPhones = new Set(todayRecords.map(r => r.phoneNumber));
+                const absentList = users
+                  .filter(u =>
+                    u.status === 'active' &&
+                    !isExcludedUser(u.fullName, u.phoneNumber) &&
+                    !scannedPhones.has(u.phoneNumber)
+                  )
+                  .map(u => `• ${u.fullName} (${u.customRole || u.role})`)
+                  .join('\n');
+                alert(`❌ Absent Today (${absentsCount}):\n\n${absentList || 'Everyone checked in today!'}`);
+              }}
+              className="p-4 bg-white border border-slate-150 rounded-2xl shadow-3xs flex items-center gap-3.5 cursor-pointer hover:shadow-md transition-all hover:border-rose-300"
+            >
               <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
                 <XCircle className="w-5 h-5" />
               </div>
@@ -3019,7 +3054,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   <ShieldAlert className="w-4 h-4 text-rose-500 animate-pulse" />
                   Pending Absentees Alerts Today
                 </h3>
-                
+
                 {absentsList.length === 0 ? (
                   <div className="py-6 text-center text-[10px] text-slate-450 italic font-bold">
                     100% compliance recorded. No missing staff registries.
@@ -3052,7 +3087,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                 {ranks.map((entry, idx) => (
                   <div key={idx} className="py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="p-1 px-1.5 bg-slate-100 font-black text-[9px] text-slate-800 rounded font-mono">#{idx+1}</span>
+                      <span className="p-1 px-1.5 bg-slate-100 font-black text-[9px] text-slate-800 rounded font-mono">#{idx + 1}</span>
                       <strong className="text-slate-800 font-extrabold">{entry.name}</strong>
                     </div>
                     <div className="flex gap-2 text-[9.5px] font-mono text-slate-500 font-bold select-none leading-none">
@@ -3097,7 +3132,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   .map((emp) => {
                     const hasBinding = !!emp.deviceSignature;
                     const isApproved = emp.deviceApproved === true;
-                    
+
                     return (
                       <div key={emp.phoneNumber} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[10px]">
                         <div className="text-left space-y-1">
@@ -3213,7 +3248,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   Master Attendance Records
                 </h3>
               </div>
-              
+
               <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
                 <button
                   onClick={handleExportCSV}
@@ -3260,24 +3295,42 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                     </div>
                     {showManualDropdown && (
                       <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg divide-y divide-slate-100 text-[10px]">
-                        {users.filter(u => {
-                          if (isExcludedUser(u.fullName, u.phoneNumber) || u.fullName.toLowerCase().includes('zewd')) return false;
-                          const term = manualSearchText.toLowerCase();
-                          return u.fullName.toLowerCase().includes(term) || u.phoneNumber.includes(term);
-                        }).map(u => (
-                          <button
-                            type="button"
-                            key={u.phoneNumber}
-                            onClick={() => {
-                              setManualEmployeePhone(u.phoneNumber);
-                              setManualSearchText(u.fullName);
-                              setShowManualDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-all font-bold"
-                          >
-                            {u.fullName} <span className="text-[8px] text-[#8B5CF6]">{u.phoneNumber}</span>
-                          </button>
-                        ))}
+                        {users
+                          .filter(u => {
+                            // Don't exclude any users - show all active users
+                            if (u.status !== 'active') return false;
+                            const term = manualSearchText.toLowerCase().trim();
+                            if (!term) return true; // Show all if no search term
+                            return u.fullName.toLowerCase().includes(term) ||
+                              u.phoneNumber.includes(term) ||
+                              (u.customRole && u.customRole.toLowerCase().includes(term));
+                          })
+                          .slice(0, 20) // Limit to 20 results for performance
+                          .map(u => (
+                            <button
+                              type="button"
+                              key={u.phoneNumber}
+                              onClick={() => {
+                                setManualEmployeePhone(u.phoneNumber);
+                                setManualSearchText(u.fullName);
+                                setShowManualDropdown(false);
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-all font-bold text-[10px]"
+                            >
+                              <span className="font-extrabold text-slate-800">{u.fullName}</span>
+                              <span className="text-[8px] text-[#8B5CF6] ml-2">{u.phoneNumber}</span>
+                              <span className="text-[8px] text-slate-400 ml-2">{u.customRole || u.role}</span>
+                            </button>
+                          ))}
+                        {users.filter(u => u.status === 'active' &&
+                          (manualSearchText.toLowerCase().trim() === '' ||
+                            u.fullName.toLowerCase().includes(manualSearchText.toLowerCase().trim()) ||
+                            u.phoneNumber.includes(manualSearchText.trim()))
+                        ).length === 0 && manualSearchText.trim() !== '' && (
+                            <div className="px-3 py-2 text-slate-400 text-[9px] italic">
+                              No employees found matching "{manualSearchText}"
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>
@@ -3363,23 +3416,69 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                         <td className="p-2.5 text-slate-600 font-mono">{r.date}</td>
                         <td className="p-2.5 font-mono text-slate-500">{r.time}</td>
                         <td className="p-2.5">
-                          <span className={`px-1.5 py-0.2 rounded font-black uppercase text-[8px] ${
-                            r.status === 'Present' || r.status === 'Afternoon Present'
-                              ? 'bg-emerald-50 text-emerald-800'
-                              : r.status === 'Late' || r.status === 'Afternoon Late'
-                                ? 'bg-amber-50 text-amber-800'
-                                : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
-                          }`}>
-                            {r.status}
-                          </span>
+                          <select
+                            value={r.status}
+                            onChange={async (e) => {
+                              const newStatus = e.target.value;
+                              if (!confirm(`Change ${r.employeeName}'s status from "${r.status}" to "${newStatus}"?`)) return;
+
+                              try {
+                                const updatedRecord = { ...r, status: newStatus };
+                                await dbService.saveAttendanceRecord(updatedRecord);
+                                alert(`✅ ${r.employeeName} status updated to "${newStatus}"`);
+                                // Refresh the page to show updated data
+                                window.location.reload();
+                              } catch (err) {
+                                alert('❌ Failed to update status.');
+                              }
+                            }}
+                            className={`px-2 py-1 rounded font-black uppercase text-[8px] border-0 cursor-pointer ${r.status === 'Present' || r.status === 'Afternoon Present'
+                                ? 'bg-emerald-50 text-emerald-800'
+                                : r.status === 'Late' || r.status === 'Afternoon Late'
+                                  ? 'bg-amber-50 text-amber-800'
+                                  : r.status === 'VERY LATE'
+                                    ? 'bg-red-100 text-red-800'
+                                    : r.status === 'Absent'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                              }`}
+                          >
+                            <option value="Present">Present</option>
+                            <option value="Late">Late</option>
+                            <option value="VERY LATE">VERY LATE</option>
+                            <option value="Afternoon Present">Afternoon Present</option>
+                            <option value="Afternoon Late">Afternoon Late</option>
+                            <option value="Absent">Absent</option>
+                            <option value="Permission">Permission</option>
+                            <option value="Emergency Leave">Emergency Leave</option>
+                            <option value="Field Work">Field Work</option>
+                            <option value="Admin Approval Required">Admin Approval Required</option>
+                            <option value="New Device Pending Approval">New Device Pending Approval</option>
+                          </select>
                         </td>
                         <td className="p-2.5 text-right">
-                          <button
-                            onClick={() => setDeletingRecordId(r.id)}
-                            className="text-rose-500 hover:text-rose-700 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Save Button */}
+                            <button
+                              onClick={async () => {
+                                // Re-fetch to ensure latest data
+                                const data = await dbService.getAttendanceRecords();
+                                setRecords(data);
+                                showFeedback('✅ Records refreshed');
+                              }}
+                              className="text-indigo-500 hover:text-indigo-700 cursor-pointer p-1"
+                              title="Refresh"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingRecordId(r.id)}
+                              className="text-rose-500 hover:text-rose-700 cursor-pointer p-1"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -3524,9 +3623,9 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
       {/* TAB - Exceptions */}
       {activeTab === 'exceptions' && isAdminOrSuper && (
         <div className="animate-fade-in">
-          <AttendanceExceptionsView 
-            currentUser={currentUser} 
-            currentWorkspace={currentUser.workspace === 'second_round' ? 'second_round' : 'first_round'} 
+          <AttendanceExceptionsView
+            currentUser={currentUser}
+            currentWorkspace={currentUser.workspace === 'second_round' ? 'second_round' : 'first_round'}
           />
         </div>
       )}
@@ -3643,11 +3742,10 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                           <td className="p-3 text-center">
                             <button
                               onClick={() => handleToggleChatbot(u.phoneNumber, u.fullName)}
-                              className={`px-2.5 py-0.5 rounded text-[9px] font-black uppercase cursor-pointer transition-all ${
-                                isChatbotEnabled
-                                  ? 'bg-emerald-50 text-emerald-850 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-400 border border-slate-200'
-                              }`}
+                              className={`px-2.5 py-0.5 rounded text-[9px] font-black uppercase cursor-pointer transition-all ${isChatbotEnabled
+                                ? 'bg-emerald-50 text-emerald-850 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-400 border border-slate-200'
+                                }`}
                             >
                               {isChatbotEnabled ? 'ALLOWED' : 'REVOKED'}
                             </button>
@@ -3740,7 +3838,7 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                         const canvas = document.createElement('canvas');
                         canvas.width = 320;
                         canvas.height = 240;
-                        
+
                         const ctx = canvas.getContext('2d');
                         if (!ctx) throw new Error("Unable to create canvas context");
 
@@ -3850,12 +3948,12 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
 
               {!capturedRegBase64 ? (
                 <>
-                  <video 
-                    ref={faceRegVideoRef} 
-                    autoPlay 
-                    playsInline 
-                    muted 
-                    className="w-full h-full object-cover scale-x-[-1]" 
+                  <video
+                    ref={faceRegVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
                   />
                   <div className="absolute inset-0 border-2 border-dashed border-indigo-400/40 rounded-2xl pointer-events-none m-4 flex items-center justify-center">
                     <div className="w-48 h-48 border-2 border-indigo-400/60 rounded-full flex items-center justify-center relative">
@@ -3866,10 +3964,10 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                   </div>
                 </>
               ) : (
-                <img 
-                  src={capturedRegBase64} 
-                  alt="Captured face" 
-                  className="w-full h-full object-cover" 
+                <img
+                  src={capturedRegBase64}
+                  alt="Captured face"
+                  className="w-full h-full object-cover"
                 />
               )}
             </div>
@@ -3904,10 +4002,10 @@ const handleProfilePasswordChange = async (e: React.FormEvent) => {
                         const result = await res.json();
                         if (result.passed === true) {
                           // Save to user profile (using MongoDB update)
-                          await dbService.updateUser(currentUser.phoneNumber, { 
-                            registeredSelfieUrl: base64 
+                          await dbService.updateUser(currentUser.phoneNumber, {
+                            registeredSelfieUrl: base64
                           });
-                          
+
                           setFaceRegSuccess("Biometric reference face registered successfully!");
                         } else {
                           setCapturedRegBase64(null);

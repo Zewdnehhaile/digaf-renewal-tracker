@@ -34,15 +34,15 @@ function getDB() {
 // Helper function to find customer by id or _id
 async function findCustomerById(collection: any, id: string) {
   let query: any = { id: id };
-  
+
   // Check if id is a valid ObjectId
   if (ObjectId.isValid(id)) {
     try {
       const doc = await collection.findOne({ _id: new ObjectId(id) });
       if (doc) return doc;
-    } catch (e) {}
+    } catch (e) { }
   }
-  
+
   // Try by id field
   return await collection.findOne({ id: id });
 }
@@ -54,9 +54,9 @@ async function deleteCustomerById(collection: any, id: string) {
     try {
       const result = await collection.deleteOne({ _id: new ObjectId(id) });
       if (result.deletedCount > 0) return result;
-    } catch (e) {}
+    } catch (e) { }
   }
-  
+
   // Try by id field
   return await collection.deleteOne({ id: id });
 }
@@ -71,9 +71,9 @@ async function updateCustomerById(collection: any, id: string, updates: any) {
         { $set: updates }
       );
       if (result.modifiedCount > 0 || result.matchedCount > 0) return result;
-    } catch (e) {}
+    } catch (e) { }
   }
-  
+
   // Try by id field
   return await collection.updateOne(
     { id: id },
@@ -177,10 +177,16 @@ async function startServer() {
       if (!req.body.addedDate) req.body.addedDate = new Date().toISOString();
       if (!req.body.updatedDate) req.body.updatedDate = new Date().toISOString();
       if (!req.body.createdAt) req.body.createdAt = new Date().toISOString();
-      
+
       const result = await db.collection('customers').insertOne(req.body);
-      // Return the full customer with _id
+      // Return the full customer with BOTH _id and id
       const inserted = await db.collection('customers').findOne({ _id: result.insertedId });
+
+      // Ensure id exists in the response (use the generated id)
+      if (inserted && !inserted.id) {
+        inserted.id = req.body.id;
+      }
+
       res.json(inserted);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -191,56 +197,85 @@ async function startServer() {
   app.delete('/api/customers/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      console.log(`[DELETE] Attempting to delete customer with id: ${id}`);
-      
-      const result = await deleteCustomerById(db.collection('customers'), id);
-      
+      console.log('🔴 DELETE request for:', id);
+
+      let result;
+
+      // FIRST: Try by id field (string ID like "cust-9vys0uuto")
+      result = await db.collection('customers').deleteOne({ id: id });
+      console.log('Delete by id field result:', result.deletedCount);
+
+      // If not deleted, try by _id as ObjectId (for MongoDB ObjectIds)
       if (result.deletedCount === 0) {
-        console.log(`[DELETE] Customer not found: ${id}`);
+        try {
+          const objectId = new ObjectId(id);
+          result = await db.collection('customers').deleteOne({ _id: objectId });
+          console.log('Delete by ObjectId result:', result.deletedCount);
+        } catch (e) {
+          console.log('Not a valid ObjectId, trying as string...');
+          // If not a valid ObjectId, try by _id as string
+          result = await db.collection('customers').deleteOne({ _id: id });
+          console.log('Delete by _id string result:', result.deletedCount);
+        }
+      }
+
+      if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Customer not found' });
       }
-      
-      console.log(`[DELETE] Successfully deleted customer: ${id}`);
+
       res.json({ success: true, deletedId: id });
     } catch (error: any) {
-      console.error('[DELETE] Error:', error);
+      console.error('Delete error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // FIXED: PUT route with both id and _id support and returns updated document
   app.put('/api/customers/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
-      
-      // Remove _id from updates if present
       delete updates._id;
-      
-      // Add timestamps
       updates.updatedDate = new Date().toISOString();
-      
-      console.log(`[UPDATE] Attempting to update customer: ${id}`);
-      console.log(`[UPDATE] Updates:`, updates);
-      
-      const result = await updateCustomerById(db.collection('customers'), id, updates);
-      
+
+      let result;
+
+      // Try by _id
+      if (id.length === 24) {
+        try {
+          const objectId = new ObjectId(id);
+          result = await db.collection('customers').updateOne(
+            { _id: objectId },
+            { $set: updates }
+          );
+        } catch (e) { }
+      }
+
+      // Try by id field
+      if (!result || result.matchedCount === 0) {
+        result = await db.collection('customers').updateOne(
+          { id: id },
+          { $set: updates }
+        );
+      }
+
+      // Try by _id as string
+      if (!result || result.matchedCount === 0) {
+        result = await db.collection('customers').updateOne(
+          { _id: id },
+          { $set: updates }
+        );
+      }
+
       if (result.matchedCount === 0) {
-        console.log(`[UPDATE] Customer not found: ${id}`);
         return res.status(404).json({ error: 'Customer not found' });
       }
-      
-      // Get the updated document
-      const updatedDoc = await findCustomerById(db.collection('customers'), id);
-      
-      if (!updatedDoc) {
-        return res.status(404).json({ error: 'Customer not found after update' });
-      }
-      
-      console.log(`[UPDATE] Successfully updated customer: ${id}`);
-      res.json(updatedDoc);
+
+      // Return updated customer
+      const updated = await db.collection('customers').findOne({ id: id }) ||
+        await db.collection('customers').findOne({ _id: new ObjectId(id) });
+      res.json(updated || updates);
     } catch (error: any) {
-      console.error('[UPDATE] Error:', error);
+      console.error('Update error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -282,7 +317,7 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.post('/api/attendance-records', async (req, res) => {
     try {
       const record = req.body;
@@ -506,7 +541,268 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+  // ============================================================
+  // ================ BLACKLIST ====================
+  // ============================================================
 
+  app.get('/api/blacklist', async (req, res) => {
+    try {
+      const entries = await db.collection('blacklist').find({}).sort({ dateAdded: -1 }).toArray();
+      res.json(entries);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/blacklist', async (req, res) => {
+    try {
+      const entry = req.body;
+      if (!entry.id) {
+        entry.id = `bl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      }
+      if (!entry.dateAdded) {
+        entry.dateAdded = new Date().toISOString();
+      }
+      entry.createdAt = new Date().toISOString();
+      entry.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('blacklist').insertOne(entry);
+      res.json({ _id: result.insertedId, ...entry });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/blacklist/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('blacklist').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/blacklist/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('blacklist').deleteOne({ id: id });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/blacklist/check/:phone', async (req, res) => {
+    try {
+      const phone = decodeURIComponent(req.params.phone);
+      const entry = await db.collection('blacklist').findOne({
+        phoneNumber: phone,
+        status: 'Blocked'
+      });
+      res.json(entry);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // ================ GUARANTORS ====================
+  // ============================================================
+
+  app.get('/api/guarantors', async (req, res) => {
+    try {
+      const guarantors = await db.collection('guarantors').find({}).sort({ assignmentDate: -1 }).toArray();
+      res.json(guarantors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/guarantors', async (req, res) => {
+    try {
+      const guarantor = req.body;
+      if (!guarantor.id) {
+        guarantor.id = `g-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      }
+      guarantor.createdAt = new Date().toISOString();
+      guarantor.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('guarantors').insertOne(guarantor);
+      res.json({ _id: result.insertedId, ...guarantor });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/guarantors/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('guarantors').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Guarantor not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/guarantors/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('guarantors').deleteOne({ id: id });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Guarantor not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/guarantors/check/:phone', async (req, res) => {
+    try {
+      const phone = decodeURIComponent(req.params.phone);
+      const today = new Date().toISOString().split('T')[0];
+
+      const entry = await db.collection('guarantors').findOne({
+        phoneNumber: phone,
+        status: 'Active',
+        expiryDate: { $gte: today }
+      });
+      res.json(entry);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // ================ NON BORROWERS ====================
+  // ============================================================
+
+  app.get('/api/non-borrowers', async (req, res) => {
+    try {
+      const nonBorrowers = await db.collection('non_borrowers').find({}).sort({ dateAdded: -1 }).toArray();
+      res.json(nonBorrowers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/non-borrowers', async (req, res) => {
+    try {
+      const nonBorrower = req.body;
+      if (!nonBorrower.id) {
+        nonBorrower.id = `nb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      }
+      if (!nonBorrower.dateAdded) {
+        nonBorrower.dateAdded = new Date().toISOString();
+      }
+      nonBorrower.createdAt = new Date().toISOString();
+      nonBorrower.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('non_borrowers').insertOne(nonBorrower);
+      res.json({ _id: result.insertedId, ...nonBorrower });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/non-borrowers/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('non_borrowers').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Non-borrower not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/non-borrowers/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('non_borrowers').deleteOne({ id: id });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Non-borrower not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+    // ============================================================
+  // ================ REPORTS DATA ====================
+  // ============================================================
+
+  app.get('/api/reports/blacklist', async (req, res) => {
+    try {
+      const entries = await db.collection('blacklist').find({}).sort({ dateAdded: -1 }).toArray();
+      res.json(entries);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/reports/guarantors', async (req, res) => {
+    try {
+      const guarantors = await db.collection('guarantors').find({}).sort({ assignmentDate: -1 }).toArray();
+      res.json(guarantors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/reports/non-borrowers', async (req, res) => {
+    try {
+      const nonBorrowers = await db.collection('non_borrowers').find({}).sort({ dateAdded: -1 }).toArray();
+      res.json(nonBorrowers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   // ============================================================
   // ==================== AI ROUTES ==============================
   // ============================================================

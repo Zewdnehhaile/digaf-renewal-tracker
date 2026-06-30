@@ -1,7 +1,18 @@
 // src/services/db.ts
-const API_BASE_URL = 'https://digaf-api.onrender.com/api';
-
-const toArray = (docs: any[]) => docs.map((doc: any) => ({ id: doc._id || doc.id, ...doc }));
+//const API_BASE_URL = 'https://digaf-api.onrender.com/api';
+const API_BASE_URL = 'http://localhost:3000/api';
+const toArray = (docs: any[]) => docs.map((doc: any) => {
+  // If the document has both _id and id, preserve both
+  // If it only has _id, use it as id
+  // If it only has id, keep it
+  const result = { ...doc };
+  // Ensure id exists (use _id if id doesn't exist)
+  if (!result.id && result._id) {
+    result.id = result._id;
+  }
+  // Keep _id as well for reference
+  return result;
+});
 
 async function apiRequest(endpoint: string, options: any = {}) {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -46,10 +57,21 @@ export const dbService = {
   getCustomers: async () => { try { const data = await apiRequest('/customers'); return toArray(data); } catch { return []; } },
   subscribeCustomers: (callback: (data: any[]) => void) => { dbService.getCustomers().then(callback); const i = setInterval(() => dbService.getCustomers().then(callback), 2000); return () => clearInterval(i); },
   addCustomer: async (customer: any) => { return await apiRequest('/customers', { method: 'POST', data: customer }); },
-  updateCustomer: async (id: string, updates: any, reason?: string) => { return await apiRequest(`/customers/${encodeURIComponent(id)}`, { method: 'PUT', data: { ...updates, reason } }); },
+  updateCustomer: async (id: string, updates: any, reason?: string) => {
+    try {
+      return await apiRequest(`/customers/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        data: { ...updates, reason }
+      });
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      throw error;
+    }
+  },
   // Add this method to dbService (after updateCustomer, around line 55):
   deleteCustomer: async (id: string) => {
     try {
+      // The id passed is already the correct identifier
       const data = await apiRequest(`/customers/${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
@@ -184,7 +206,179 @@ export const dbService = {
     }
   },
 
+  // ==================== BLACKLIST ====================
+  // ==================== BLACKLIST ====================
+  getBlacklist: async () => {
+    try {
+      const data = await apiRequest('/reports/blacklist');
+      return data;
+    } catch (error) {
+      console.error('Error fetching blacklist:', error);
+      return [];
+    }
+  },
 
+  // ==================== GUARANTORS ====================
+  getGuarantors: async () => {
+    try {
+      const data = await apiRequest('/reports/guarantors');
+      return data;
+    } catch (error) {
+      console.error('Error fetching guarantors:', error);
+      return [];
+    }
+  },
+
+  // ==================== NON BORROWERS ====================
+  getNonBorrowers: async () => {
+    try {
+      const data = await apiRequest('/reports/non-borrowers');
+      return data;
+    } catch (error) {
+      console.error('Error fetching non-borrowers:', error);
+      return [];
+    }
+  },
+
+  addBlacklistEntry: async (entry: any) => {
+    try {
+      const data = await apiRequest('/blacklist', {
+        method: 'POST',
+        data: entry
+      });
+      return data;
+    } catch (error) {
+      console.error('Error adding blacklist entry:', error);
+      throw error;
+    }
+  },
+
+  updateBlacklistEntry: async (id: string, updates: any) => {
+    try {
+      const data = await apiRequest(`/blacklist/${id}`, {
+        method: 'PUT',
+        data: updates
+      });
+      return data;
+    } catch (error) {
+      console.error('Error updating blacklist entry:', error);
+      throw error;
+    }
+  },
+
+  deleteBlacklistEntry: async (id: string) => {
+    try {
+      const data = await apiRequest(`/blacklist/${id}`, {
+        method: 'DELETE'
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting blacklist entry:', error);
+      throw error;
+    }
+  },
+
+  checkBlacklist: async (phoneNumber: string) => {
+    try {
+      const data = await apiRequest(`/blacklist/check/${encodeURIComponent(phoneNumber)}`);
+      return data;
+    } catch (error) {
+      console.error('Error checking blacklist:', error);
+      return null;
+    }
+  },
+
+  // ==================== GUARANTORS ====================
+  
+
+  addGuarantor: async (guarantor: any) => {
+    try {
+      const data = await apiRequest('/guarantors', {
+        method: 'POST',
+        data: guarantor
+      });
+      return data;
+    } catch (error) {
+      console.error('Error adding guarantor:', error);
+      throw error;
+    }
+  },
+
+  updateGuarantor: async (id: string, updates: any) => {
+    try {
+      const data = await apiRequest(`/guarantors/${id}`, {
+        method: 'PUT',
+        data: updates
+      });
+      return data;
+    } catch (error) {
+      console.error('Error updating guarantor:', error);
+      throw error;
+    }
+  },
+
+  deleteGuarantor: async (id: string) => {
+    try {
+      const data = await apiRequest(`/guarantors/${id}`, {
+        method: 'DELETE'
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting guarantor:', error);
+      throw error;
+    }
+  },
+
+  checkDuplicateGuarantor: async (phoneNumber: string) => {
+    try {
+      const data = await apiRequest(`/guarantors/check/${encodeURIComponent(phoneNumber)}`);
+      return data;
+    } catch (error) {
+      console.error('Error checking duplicate guarantor:', error);
+      return null;
+    }
+  },
+
+  // ==================== NON BORROWERS ====================
+
+
+  addNonBorrower: async (nonBorrower: any) => {
+    try {
+      const data = await apiRequest('/non-borrowers', {
+        method: 'POST',
+        data: nonBorrower
+      });
+      return data;
+    } catch (error) {
+      console.error('Error adding non-borrower:', error);
+      throw error;
+    }
+  },
+
+  updateNonBorrower: async (id: string, updates: any) => {
+    try {
+      const data = await apiRequest(`/non-borrowers/${id}`, {
+        method: 'PUT',
+        data: updates
+      });
+      return data;
+    } catch (error) {
+      console.error('Error updating non-borrower:', error);
+      throw error;
+    }
+  },
+
+  deleteNonBorrower: async (id: string) => {
+    try {
+      const data = await apiRequest(`/non-borrowers/${id}`, {
+        method: 'DELETE'
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting non-borrower:', error);
+      throw error;
+    }
+  },
   subscribeCorrectionRequests: (callback: (data: any[]) => void) => {
     callback([]);
     return () => { };
@@ -211,25 +405,25 @@ export const dbService = {
     }
   },
   sendChatMessage: async (message: any) => {
-  try {
-    return await apiRequest('/chats', { 
-      method: 'POST', 
-      data: message 
-    });
-  } catch (error) {
-    console.error('Error sending chat message:', error);
-    throw error;
-  }
-},
+    try {
+      return await apiRequest('/chats', {
+        method: 'POST',
+        data: message
+      });
+    } catch (error) {
+      console.error('Error sending chat message:', error);
+      throw error;
+    }
+  },
 
-markMessageAsRead: async (messageId: string) => {
-  try {
-    return await apiRequest(`/chats/${messageId}/read`, { 
-      method: 'PUT' 
-    });
-  } catch (error) {
-    console.error('Error marking message as read:', error);
-    throw error;
-  }
-},
+  markMessageAsRead: async (messageId: string) => {
+    try {
+      return await apiRequest(`/chats/${messageId}/read`, {
+        method: 'PUT'
+      });
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      throw error;
+    }
+  },
 };

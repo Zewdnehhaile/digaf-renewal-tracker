@@ -3,7 +3,6 @@ import { User, ActivityLog, Customer, STATUS_LIST, CustomerStatus } from '../typ
 import { dbService, db } from '../services/db';
 import {
   Shield,
-  Sparkles,
   UserX,
   UserCheck,
   KeyRound,
@@ -34,7 +33,6 @@ import { soundService } from '../services/sound';
 import { hashPassword } from '../utils/security';
 import ActivityLogView from './ActivityLogView';
 import QuickControllerView from './QuickControllerView';
-import AIControlCenter from './AIControlCenter';
 import WorkspaceBadge from './WorkspaceBadge';
 
 interface AdminDashboardProps {
@@ -48,7 +46,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const isZewdneh = currentUser.isSuperAdmin === true || currentUser.role === 'super_admin';
   const isAdminStaff = currentUser.role === 'super_admin' || currentUser.role === 'admin';
 
-  // Strict page entry gate for non-admins (Address Audit Task #1 #9 #10: Route Containment Access Control)
+  // Strict page entry gate for non-admins
   if (!isAdminStaff) {
     return (
       <div className="p-8 bg-rose-50 border border-rose-200 rounded-3xl text-center max-w-xl mx-auto my-12 shadow-sm font-sans">
@@ -75,8 +73,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const [operatorSearch, setOperatorSearch] = useState('');
   const [deviceSearch, setDeviceSearch] = useState('');
 
-  // Navigation tabs state (Now fully supports corporate workspaces and backup restore snap panels)
-  const [activeTab, setActiveTab] = useState<'operators' | 'portfolios' | 'audit' | 'telemetry' | 'quick' | 'ai_hub' | 'tasks' | 'devices' | 'backups' | 'errors'>('quick');
+  // Navigation tabs state
+  const [activeTab, setActiveTab] = useState<'operators' | 'portfolios' | 'audit' | 'telemetry' | 'quick' | 'tasks' | 'devices' | 'backups' | 'errors'>('quick');
 
   // Overriding/Editing keys & Roles states
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -178,7 +176,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       mappedRole = 'admin';
     }
 
-    // Cryptographically hash the initial password
     const cryptedPassword = await hashPassword(addPassword.trim());
 
     const newUser: User = {
@@ -197,18 +194,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.createUser(newUser);
-
-      // Log on admin logs
       await dbService.logActivity(
         currentUser.fullName,
         'Renewal Processing',
         'Renewal Processing',
         `Admin created new employee workstation account: ${newUser.fullName} (${newUser.phoneNumber}) with business role ${addCustomRole}`
       );
-
       soundService.playSuccessChime();
       setAddSuccess(`Employee "${newUser.fullName}" added successfully with role "${addCustomRole}"!`);
-      // Reset inputs
       setAddName('');
       setAddPhone('');
       setAddPassword('');
@@ -219,12 +212,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   };
 
   useEffect(() => {
-    // Subscribe to users real-time stream
     const unsubscribeUsers = dbService.subscribeUsers((updatedUsers) => {
       setUsers(updatedUsers);
       setLoading(false);
 
-      // Dynamically extract unique business/custom roles
       const uniqueRoles = new Set<string>([
         'Senior Digital KYC Officer',
         'Digital Operational Officer',
@@ -239,7 +230,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       setBusinessRoles(Array.from(uniqueRoles));
     });
 
-    // Subscribe to work assignments
     const unsubscribeTasks = dbService.subscribeWorkAssignments((updatedTasks) => {
       setWorkAssignments(updatedTasks.sort((a, b) => {
         const priorityScore = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -250,17 +240,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       }));
     });
 
-    // Subscribe to system error traces
     const unsubscribeErrors = dbService.subscribeSystemErrors((updatedErrors) => {
       setSystemErrors(updatedErrors.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()));
     });
 
-    // Subscribe to backups
     const unsubscribeBackups = dbService.subscribeBackups((updatedBackups) => {
       setBackups(updatedBackups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
     });
 
-    // Subscribe to attendance records
     const unsubscribeAttendance = dbService.subscribeAttendanceRecords((records) => {
       setAttendanceRecords(records);
     });
@@ -275,7 +262,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   }, []);
 
   const handleToggleStatus = async (user: User) => {
-    // Protect Super Admin using database identity flags
     const isTargetSuperAdmin = user.isSuperAdmin === true || user.systemProtected === true || user.role === 'super_admin';
     if (isTargetSuperAdmin) {
       soundService.playSuccessChime();
@@ -283,9 +269,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       return;
     }
 
-    // Prevent self-deactivation of core admin account
     if (user.phoneNumber === currentUser.phoneNumber) {
-      soundService.playSuccessChime(); // small beep
+      soundService.playSuccessChime();
       alert('Security Protocol: You cannot deactivate your own administrative account.');
       return;
     }
@@ -293,8 +278,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
     const nextStatus = user.status === 'active' ? 'deactive' : 'active';
     try {
       await dbService.updateUser(user.phoneNumber, { status: nextStatus });
-
-      // Log admin actions
       await dbService.logActivity(
         user.fullName,
         'Renewal Processing',
@@ -317,7 +300,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
     const targetIsSelf = selectedUser.phoneNumber === currentUser.phoneNumber;
     const targetIsSuperAdmin = selectedUser.isSuperAdmin === true || selectedUser.systemProtected === true || selectedUser.role === 'super_admin';
 
-    // Prevent Admins (Aman) from modifying Super Admin
     if (targetIsSuperAdmin && currentUser.role !== 'super_admin') {
       setPasswordError('Permission Denied: Only Super Admin can manage Super Admin configuration.');
       soundService.playSuccessChime();
@@ -329,7 +311,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       actualSelectedRole = selectedCustomRoleText.trim();
     }
 
-    // Determine System Role based on Business/Custom Role selection
     let systemRole: 'super_admin' | 'admin' | 'employee' = 'employee';
     if (actualSelectedRole === 'Super Admin' || actualSelectedRole === 'System Owner') {
       systemRole = 'super_admin';
@@ -337,7 +318,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       systemRole = 'admin';
     }
 
-    // Force Super Admin to remain Super Admin
     if (targetIsSuperAdmin && systemRole !== 'super_admin') {
       setPasswordError('Protocol Violation: Super Admin cannot be demoted or have Super Admin privilege stripped.');
       return;
@@ -361,15 +341,12 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.updateUser(selectedUser.phoneNumber, updates);
-
-      // Log audit trail
       await dbService.logActivity(
         currentUser.fullName,
         'Renewal Processing',
         'Renewal Processing',
         `Admin modified operator account: ${selectedUser.fullName} (${selectedUser.phoneNumber}). Custom Role: ${selectedCustomRole}, Workspace: ${selectedWorkspace}, Tracker Access: ${selectedTrackerAccess ? 'Enabled' : 'Disabled'}, Password Overridden: ${!!newPassword.trim()}`
       );
-
       soundService.playSuccessChime();
       setPasswordSuccess('Account settings & classifications saved successfully!');
       setNewPassword('');
@@ -385,7 +362,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
 
-    // Protect Super Admin using database identity flags
     const isTargetSuperAdmin = deletingUser.isSuperAdmin === true || deletingUser.systemProtected === true || deletingUser.role === 'super_admin';
     if (isTargetSuperAdmin) {
       soundService.playSuccessChime();
@@ -401,14 +377,12 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
     try {
       await dbService.deleteUser(deletingUser.phoneNumber);
-
       await dbService.logActivity(
         deletingUser.fullName,
         'Renewal Processing',
         'Renewal Processing',
         `Admin deleted user workstation account permanently: ${deletingUser.phoneNumber}`
       );
-
       soundService.playSuccessChime();
       setDeletingUser(null);
       setDeleteConfirmPhone('');
@@ -419,25 +393,21 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
     }
   };
 
-  //  MongoDB  Storage & Resource telemetry calculations based on 1GB spark quotas
-  // 1 document averages around 0.5 Kilobytes in typical schema tracking
-  const estUsersSize = users.length * 0.45; // KB
-  const estCustomersSize = customers.length * 0.65; // KB
-  const estLogsSize = logs.length * 0.35; // KB
+  const estUsersSize = users.length * 0.45;
+  const estCustomersSize = customers.length * 0.65;
+  const estLogsSize = logs.length * 0.35;
   const totalEstUsedKB = estUsersSize + estCustomersSize + estLogsSize;
-  const maxStorageKB = 1048576; // 1 GB Spark free limit in Kilobytes
+  const maxStorageKB = 1048576;
   const pctUsed = (totalEstUsedKB / maxStorageKB) * 100;
   const pctLeft = 100 - pctUsed;
 
-  // Reads: Each real-time stream subscription loaded our document rows on initial session mount
   const estSessionReads = users.length + customers.length + logs.length;
-  // Writes: Seed records + logging audits
   const estSessionWrites = logs.length + users.length;
 
   return (
     <div className="space-y-6 animate-fade-in" id="admin_dashboard_view">
 
-      {/* Visual top highlight header card - Extremely Compact & Clean */}
+      {/* Visual top highlight header card */}
       <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden" id="admin_header_card">
         <div className="absolute top-0 right-0 w-48 h-48 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
         <div className="space-y-0.5 text-center md:text-left relative z-10">
@@ -464,33 +434,23 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         </div>
       </div>
 
-      {/* HORIZONTAL MINI SUB-NAVBAR FOR DASHBOARD PANELS (Saves Space & Refines Layout) */}
+      {/* HORIZONTAL MINI SUB-NAVBAR */}
       <div className="flex border-b border-slate-200 gap-1 pb-px overflow-x-auto select-none no-scrollbar">
-        <button
-          onClick={() => setActiveTab('ai_hub')}
-          className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'ai_hub'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-455 text-slate-500 hover:text-slate-700'
-            }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] animate-pulse" />
-          AI Control Center
-        </button>
         <button
           onClick={() => setActiveTab('quick')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'quick'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+          <Sliders className="w-3.5 h-3.5 text-indigo-500" />
           Quick Controller
         </button>
         <button
           onClick={() => setActiveTab('operators')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'operators'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <Smartphone className="w-3.5 h-3.5" />
@@ -499,8 +459,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'tasks'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <ClipboardList className="w-3.5 h-3.5 text-amber-500" />
@@ -509,8 +469,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('portfolios')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'portfolios'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <Users className="w-3.5 h-3.5" />
@@ -519,8 +479,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('devices')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'devices'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <Smartphone className="w-3.5 h-3.5 text-indigo-505" />
@@ -529,8 +489,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('backups')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'backups'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <Database className="w-3.5 h-3.5 text-violet-500" />
@@ -539,8 +499,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('audit')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'audit'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <History className="w-3.5 h-3.5" />
@@ -549,8 +509,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('errors')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === 'errors'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
@@ -559,8 +519,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
         <button
           onClick={() => setActiveTab('telemetry')}
           className={`px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'telemetry'
-              ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
-              : 'border-transparent text-slate-450 hover:text-slate-700'
+            ? 'border-[#8B5CF6] text-slate-800 font-extrabold'
+            : 'border-transparent text-slate-450 hover:text-slate-700'
             }`}
         >
           <Database className="w-3.5 h-3.5" />
@@ -569,15 +529,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       </div>
 
       <div className="w-full">
-        {activeTab === 'ai_hub' && (
-          <div className="animate-fade-in mt-4">
-            <AIControlCenter
-              currentUser={currentUser}
-              users={users}
-            />
-          </div>
-        )}
-
         {activeTab === 'quick' && (
           <div className="animate-fade-in mt-4">
             <QuickControllerView
@@ -595,7 +546,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             const ws = u.workspace;
             const isContactCenter = roleLower.includes('contact center') || u.role === 'Contact Center';
             if (isContactCenter) return false;
-            // Only 1st and 2nd round employees
             return ws === 'first_round' || ws === 'second_round' || ws === 'both';
           });
 
@@ -610,7 +560,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-              {/* Left columns: Operator List with Delete button */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -623,7 +572,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     </span>
                   </div>
 
-                  {/* Operator Search Filter Box */}
                   <div className="relative pt-1 font-sans">
                     <Search className="absolute left-3 top-4 w-3.5 h-3.5 text-slate-400 hover:text-[#8B5CF6] transition-colors" />
                     <input
@@ -646,11 +594,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         const isSelf = u.phoneNumber === currentUser.phoneNumber;
                         const isSuper = u.phoneNumber.toLowerCase().includes('zewd') || u.fullName.toLowerCase().includes('zewd');
 
-                        // Mask Super Admin role to non-Zewdneh observers
-                        let visibleRole = u.customRole || (isSuper ? '2nd Round Employee' : u.role.toUpperCase());
-                        if (isSuper && !isZewdneh && !isSelf) {
-                          visibleRole = '2nd Round Employee';
-                        }
+                        let visibleRole = u.customRole || u.role;
 
                         return (
                           <div key={u.phoneNumber} className="py-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 first:pt-0 last:pb-0 border-b border-slate-100 last:border-0 animate-fade-in text-[10.5px]">
@@ -661,10 +605,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                   <span className="text-[8px] font-extrabold bg-violet-100 text-[#8B5CF6] border border-violet-200 px-1 py-0.2 rounded-xs uppercase">Self</span>
                                 )}
                                 <span className={`text-[8.5px] px-1.5 py-0.2 rounded-xs font-black uppercase tracking-wider ${u.role === 'admin'
-                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                    : 'bg-slate-100 text-slate-600'
+                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  : 'bg-slate-100 text-slate-600'
                                   }`}>
-                                  {visibleRole}
+                                  {u.customRole || u.role}
                                 </span>
                               </div>
 
@@ -680,7 +624,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0 w-full md:w-auto">
-                              {/* ASSIGN button */}
                               {!(isSuper && !isZewdneh) ? (
                                 <button
                                   type="button"
@@ -702,22 +645,20 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 <span className="text-[8.5px] text-slate-400 font-mono tracking-wider">RESTRICTED</span>
                               )}
 
-                              {/* Active/Suspended status toggler */}
                               <button
                                 type="button"
                                 onClick={() => handleToggleStatus(u)}
                                 disabled={isSelf || (isSuper && !isZewdneh)}
                                 className={`px-2 py-1 text-[9px] font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer justify-center ${isSelf || (isSuper && !isZewdneh)
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
-                                    : u.status === 'active'
-                                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-                                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                                  ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
+                                  : u.status === 'active'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
                                   }`}
                               >
                                 {u.status === 'active' ? 'ACTIVE' : 'SUSPENDED'}
                               </button>
 
-                              {/* DELETE Account */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -727,8 +668,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 }}
                                 disabled={isSelf || (isSuper && !isZewdneh)}
                                 className={`px-2 py-1 rounded-lg border text-[9px] font-black transition-all flex items-center gap-1 justify-center cursor-pointer ${isSelf || (isSuper && !isZewdneh)
-                                    ? 'opacity-40 cursor-not-allowed border-none text-[8px]'
-                                    : 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-800'
+                                  ? 'opacity-40 cursor-not-allowed border-none text-[8px]'
+                                  : 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-800'
                                   }`}
                                 title={isSelf ? "You cannot delete your own session" : "Permanently remove operator"}
                               >
@@ -744,9 +685,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* Right column: Edit password override card & Add Employee form */}
               <div className="space-y-4">
-                {/* Form to Add New Employee */}
                 <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
                   <div className="flex items-center justify-between border-b border-indigo-150 pb-2">
                     <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
@@ -929,7 +868,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     )}
 
                     <form onSubmit={handleUpdateUserAccess} className="space-y-3.5">
-                      {/* Role selector dropdown */}
                       <div className="space-y-1">
                         <label className="text-[8.5px] font-black text-slate-455 uppercase tracking-wider block">Custom Attendance Role</label>
                         <select
@@ -964,7 +902,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         </div>
                       )}
 
-                      {/* Round Workspace Assignment selector */}
                       <div className="space-y-1">
                         <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">
                           Workspace & Section Access
@@ -986,7 +923,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         </p>
                       </div>
 
-                      {/* Access switch to renewal tracker module */}
                       <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-150 flex items-center justify-between gap-1.5 align-middle">
                         <div className="space-y-0.5 leading-tight">
                           <span className="text-[9.5px] font-extrabold text-slate-800 block">Renewal Tracker Module</span>
@@ -1003,7 +939,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         </button>
                       </div>
 
-                      {/* Optional key password reset */}
                       <div className="space-y-1">
                         <label className="text-[8.5px] font-black text-slate-450 uppercase tracking-wider block">
                           Override Key Password (Optional)
@@ -1053,9 +988,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               </div>
             </div>
           );
-        })()}        {/* TAB 2: PORTFOLIOS & WORKLOAD DISTRIBUTION */}
+        })()}
+
+        {/* TAB 2: PORTFOLIOS & WORKLOAD DISTRIBUTION */}
         {activeTab === 'portfolios' && (() => {
-          // Date filter checker
           const isWithinDateFilter = (dateStr: string | undefined): boolean => {
             if (!dateStr) return false;
             const dateOnly = dateStr.split('T')[0];
@@ -1098,7 +1034,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             return true;
           };
 
-          // Helper to check if a customer record matches an employee
           const matchesEmployee = (c: Customer, u: User) => {
             const cAdded = (c.addedBy || '').toLowerCase().trim();
             const cUpdated = (c.updatedBy || '').toLowerCase().trim();
@@ -1107,7 +1042,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             return cAdded === uName || cAdded === uPhone || cUpdated === uName || cUpdated === uPhone;
           };
 
-          // Stats computation per worker
           const getEmployeeStats = (u: User) => {
             const frPosted = customers.filter(c => c.workspace === 'first_round' && matchesEmployee(c, u) && isWithinDateFilter(c.addedDate)).length;
             const frCompleted = customers.filter(c => c.workspace === 'first_round' && matchesEmployee(c, u) && c.status === 'Completed' && isWithinDateFilter(c.updatedDate || c.addedDate)).length;
@@ -1158,7 +1092,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             };
           };
 
-          // Global summaries
           const teamFirstRoundSummary = (() => {
             const frCustomers = customers.filter(c => c.workspace === 'first_round' && isWithinDateFilter(c.addedDate));
             const totalPosted = frCustomers.length;
@@ -1177,17 +1110,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             return { totalRenewal, totalCompleted, totalPaid, totalRejected, totalWaiting, totalNoResponse };
           })();
 
-          // Filter to include ONLY 1st and 2nd round employees (excluding Contact Center)
           const validEmployeesList = users.filter(u => {
             const roleLower = (u.businessRole || u.customRole || u.role || '').toLowerCase();
             const ws = u.workspace;
             const isContactCenter = roleLower.includes('contact center') || u.role === 'Contact Center';
             if (isContactCenter) return false;
-            // only 1st and 2nd round employees
             return ws === 'first_round' || ws === 'second_round' || ws === 'both';
           });
 
-          // Rankings
           const rankedEmployees = validEmployeesList.map(u => {
             const stats = getEmployeeStats(u);
             return {
@@ -1203,7 +1133,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             return b.productivity - a.productivity;
           });
 
-          // Live search filter
           const filteredUsersForDashboard = validEmployeesList.filter((u) => {
             const q = employeeSearch.toLowerCase().trim();
             if (!q) return true;
@@ -1217,8 +1146,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             const header = [
               'Employee Name', 'Role', 'Phone Number',
               'First Round Posted', 'First Round Completed',
-              'Renewal Processing', 'Completed', 'Paid', 'Rejected', 'Waiting', 'No Response',
-              'Present Days', 'Late Days', 'Very Late Days'
+              'Renewal Processing', 'Completed', 'Paid', 'Rejected', 'Waiting', 'No Response'
             ].join(',');
 
             const rows = users.map(u => {
@@ -1234,10 +1162,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 stats.srPaid,
                 stats.srRejected,
                 stats.srWaiting,
-                stats.srNoResponse || 0,
-                stats.present,
-                stats.late,
-                stats.veryLate
+                stats.srNoResponse || 0
               ].join(',');
             });
 
@@ -1254,8 +1179,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
           return (
             <div className="space-y-6 animate-fade-in font-sans">
-
-              {/* HEADER CAPTION */}
               <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
@@ -1267,7 +1190,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </p>
                 </div>
 
-                {/* Clean CSV & Excel Redesigned export controls */}
                 <button
                   onClick={handleExportPerformanceCSV}
                   className="px-3.5 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -1277,11 +1199,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </button>
               </div>
 
-              {/* DATE FILTERS & SEARCH MODULE */}
               <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-
-                  {/* Date Filter Selection Buttons */}
                   <div className="lg:col-span-7 space-y-1.5">
                     <label className="text-[9.5px] font-black text-slate-450 uppercase tracking-wider block">Time Horizon Filter</label>
                     <div className="flex flex-wrap gap-1">
@@ -1296,8 +1215,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                           key={btn.id}
                           onClick={() => setDateFilter(btn.id as any)}
                           className={`px-3 py-1.5 text-[10.5px] font-bold rounded-lg border transition-all cursor-pointer ${dateFilter === btn.id
-                              ? 'bg-violet-50 text-[#8B5CF6] border-violet-200 shadow-3xs'
-                              : 'bg-transparent text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                            ? 'bg-violet-50 text-[#8B5CF6] border-violet-200 shadow-3xs'
+                            : 'bg-transparent text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
                             }`}
                         >
                           {btn.label}
@@ -1306,7 +1225,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     </div>
                   </div>
 
-                  {/* Operator Quick Search */}
                   <div className="lg:col-span-5 space-y-1.5">
                     <label className="text-[9.5px] font-black text-slate-450 uppercase tracking-wider block">Search Employee</label>
                     <div className="relative">
@@ -1320,10 +1238,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       />
                     </div>
                   </div>
-
                 </div>
 
-                {/* Conditional Custom Date Range Picks */}
                 {dateFilter === 'custom' && (
                   <div className="grid grid-cols-2 gap-3 mt-4 p-3 bg-violet-50/40 rounded-xl border border-violet-100 animate-fade-in">
                     <div className="space-y-1">
@@ -1348,10 +1264,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 )}
               </div>
 
-              {/* TEAM SUMMARY GLOBAL CARDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {/* First Round Summary */}
                 <div className="bg-gradient-to-br from-violet-500/5 to-violet-600/5 border border-violet-100 rounded-xl p-4.5 space-y-3">
                   <div className="flex items-center justify-between border-b border-violet-100/50 pb-2">
                     <span className="text-[10px] font-black uppercase text-violet-700 tracking-wider">FIRST ROUND GLOBAL SUMMARY</span>
@@ -1367,7 +1280,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                       <span className="text-lg font-black text-[#8B5CF6] tracking-tight">{teamFirstRoundSummary.totalCompleted}</span>
                     </div>
                   </div>
-                </div>                {/* Second Round Summary */}
+                </div>
+
                 <div className="bg-gradient-to-br from-indigo-500/5 to-indigo-600/5 border border-indigo-100 rounded-xl p-4.5 space-y-3">
                   <div className="flex items-center justify-between border-b border-indigo-100/50 pb-2">
                     <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">SECOND ROUND GLOBAL SUMMARY</span>
@@ -1400,10 +1314,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     </div>
                   </div>
                 </div>
-
               </div>
 
-              {/* STAFF OPERATIONS MATRIX */}
               <div className="bg-white border border-slate-150 rounded-xl p-4.5 shadow-3xs space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-1.5">
@@ -1414,7 +1326,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                     </div>
                   </div>
 
-                  {/* Select Metric */}
                   <div className="flex items-center gap-1 self-end sm:self-auto">
                     {[
                       { id: 'completed', label: 'Completed Tasks' },
@@ -1425,8 +1336,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         key={metric.id}
                         onClick={() => setRankingMetric(metric.id as any)}
                         className={`px-2.5 py-1 text-[9.5px] font-black uppercase tracking-wider rounded-md border transition-all cursor-pointer ${rankingMetric === metric.id
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-transparent text-slate-450 border-slate-150/80 hover:bg-slate-50'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-transparent text-slate-450 border-slate-150/80 hover:bg-slate-50'
                           }`}
                       >
                         {metric.label}
@@ -1435,7 +1346,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </div>
                 </div>
 
-                {/* Complete Employee Board table without Rank */}
                 <div className="mt-4 border border-slate-150 rounded-xl overflow-hidden bg-white">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1481,7 +1391,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* INDIVIDUAL EMPLOYEE CARDS GRID */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between pl-1">
                   <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
@@ -1500,8 +1409,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         className="bg-white border border-slate-150 hover:border-violet-300 rounded-xl p-4 shadow-3xs hover:shadow-2xs transition-all cursor-pointer flex flex-col justify-between group"
                       >
                         <div className="space-y-3">
-
-                          {/* Top Heading */}
                           <div className="flex items-start justify-between border-b border-slate-100 pb-2">
                             <div>
                               <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight group-hover:text-[#8B5CF6] transition-colors">{emp.fullName}</h4>
@@ -1514,10 +1421,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                             </span>
                           </div>
 
-                          {/* Stats Grid: First vs Second */}
                           <div className="grid grid-cols-2 gap-4">
-
-                            {/* First Round */}
                             <div className="space-y-1.5">
                               <span className="text-[8.5px] text-[#8B5CF6] font-black uppercase tracking-wider block border-b border-violet-50 pb-0.5">FIRST ROUND</span>
                               <div className="text-[10px] text-slate-600 flex justify-between">
@@ -1530,7 +1434,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                               </div>
                             </div>
 
-                            {/* Second Round */}
                             <div className="space-y-1.5 border-l border-slate-100 pl-4">
                               <span className="text-[8.5px] text-indigo-700 font-black uppercase tracking-wider block border-b border-indigo-50 pb-0.5">SECOND ROUND</span>
                               <div className="text-[9.5px] text-slate-600 flex justify-between">
@@ -1558,20 +1461,9 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                 <strong className="text-rose-950 font-mono font-extrabold">{stats.srNoResponse || 0}</strong>
                               </div>
                             </div>
-
-                          </div>
-
-                        </div>
-
-                        {/* Attendance summary banner on the card bottom */}
-                        <div className="bg-slate-50/50 mt-3 p-2 rounded-lg text-[9px] flex items-center justify-between border border-slate-100">
-                          <span className="font-extrabold text-slate-400 uppercase tracking-wide">Attendance:</span>
-                          <div className="flex gap-2 text-slate-500">
-                            <div>P: <strong className="text-emerald-600 font-sans">{stats.present}d</strong></div>
-                            <div>L: <strong className="text-amber-500 font-sans">{stats.late}d</strong></div>
-                            <div>VL: <strong className="text-rose-600 font-sans">{stats.veryLate}d</strong></div>
                           </div>
                         </div>
+
 
                       </div>
                     );
@@ -1579,19 +1471,14 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* INDIVIDUAL EMPLOYEE DRILL-DOWN AUDIT TRAIL */}
               {selectedDrillDownEmployee && (() => {
                 const emp = selectedDrillDownEmployee;
                 const stats = getEmployeeStats(emp);
-
-                // Retrieve all customer workload items processed/added by this user
                 const handledCustomers = customers.filter(c => matchesEmployee(c, emp) && isWithinDateFilter(c.addedDate));
 
                 return (
                   <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 relative">
-
-                      {/* Close button */}
                       <button
                         onClick={() => setSelectedDrillDownEmployee(null)}
                         className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 text-base font-bold bg-slate-50 rounded-full p-2 h-9 w-9 flex items-center justify-center cursor-pointer border border-slate-150"
@@ -1599,7 +1486,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         ✕
                       </button>
 
-                      {/* Header */}
                       <div className="border-b border-slate-100 pb-3">
                         <div className="flex items-center gap-2">
                           <ArrowLeft
@@ -1620,29 +1506,9 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         </div>
                       </div>
 
-                      {/* Grade Block with score indicators */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
-                        {/* Attendance Merit Block */}
-                        <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl">
-                          <span className="text-[8.5px] font-black text-slate-400 block uppercase">ATTENDANCE LEDGER</span>
-                          <div className="grid grid-cols-3 gap-1 mt-2 text-center">
-                            <div className="bg-white p-1 rounded border border-slate-150">
-                              <span className="text-[7.5px] text-emerald-600 font-extrabold block uppercase">PRES</span>
-                              <span className="text-xs font-black">{stats.present}d</span>
-                            </div>
-                            <div className="bg-white p-1 rounded border border-slate-150">
-                              <span className="text-[7.5px] text-amber-500 font-extrabold block uppercase">LATE</span>
-                              <span className="text-xs font-black">{stats.late}d</span>
-                            </div>
-                            <div className="bg-white p-1 rounded border border-slate-150">
-                              <span className="text-[7.5px] text-rose-600 font-extrabold block uppercase">V_LATE</span>
-                              <span className="text-xs font-black">{stats.veryLate}d</span>
-                            </div>
-                          </div>
-                        </div>
 
-                        {/* First Round Summary */}
                         <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl flex flex-col justify-between">
                           <span className="text-[8.5px] font-black text-slate-400 block uppercase">FIRST ROUND PORTFOLIO</span>
                           <div className="flex justify-between items-baseline mt-2">
@@ -1651,7 +1517,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                           </div>
                         </div>
 
-                        {/* Second Round Summary */}
                         <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl flex flex-col justify-between">
                           <span className="text-[8.5px] font-black text-slate-400 block uppercase">SECOND ROUND WORKLOAD</span>
                           <div className="flex justify-between items-baseline mt-2">
@@ -1659,10 +1524,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                             <span className="text-[13px] font-black text-indigo-700">{stats.srCompleted} / {stats.srPaid}</span>
                           </div>
                         </div>
-
                       </div>
 
-                      {/* Detailed transaction list under strict isolation */}
                       <div className="space-y-2">
                         <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
                           ACTIVE WORKLOAD ASSIGNMENTS DRILL-DOWN ({handledCustomers.length} ENTRIES)
@@ -1692,22 +1555,22 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                     <td className="py-2 px-3 font-mono text-slate-500">{c.phoneNumber || 'N/A'}</td>
                                     <td className="py-2 px-3">
                                       <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border tracking-wider ${c.workspace === 'second_round'
-                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                          : 'bg-violet-50 text-[#8B5CF6] border-violet-200'
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : 'bg-violet-50 text-[#8B5CF6] border-violet-200'
                                         }`}>
                                         {c.workspace === 'second_round' ? 'Second Round' : 'First Round'}
                                       </span>
                                     </td>
                                     <td className="py-2 px-3">
                                       <span className={`px-2 py-0.2 rounded-full text-[8px] font-black uppercase border tracking-wider ${c.status === 'Completed'
-                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                          : c.status === 'Renewal Processing'
-                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                            : c.status === 'Paid'
-                                              ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
-                                              : c.status === 'Waiting'
-                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                : 'bg-rose-50 text-rose-800 border-rose-200'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : c.status === 'Renewal Processing'
+                                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                          : c.status === 'Paid'
+                                            ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                            : c.status === 'Waiting'
+                                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                              : 'bg-rose-50 text-rose-800 border-rose-200'
                                         }`}>
                                         {c.status}
                                       </span>
@@ -1726,7 +1589,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                         )}
                       </div>
 
-                      {/* Close Panel Modal Footer */}
                       <div className="flex justify-end pt-3 border-t border-slate-100">
                         <button
                           onClick={() => setSelectedDrillDownEmployee(null)}
@@ -1735,17 +1597,15 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                           Close profile audit
                         </button>
                       </div>
-
                     </div>
                   </div>
                 );
               })()}
-
             </div>
           );
         })()}
 
-        {/* TAB 3: MongoDBSYSTEM TELEMETRY & STORAGE REMAINING */}
+        {/* TAB 3: TELEMETRY */}
         {activeTab === 'telemetry' && (
           <div className="bg-white border border-slate-150 rounded-xl p-4 shadow-3xs space-y-4 animate-fade-in">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -1763,7 +1623,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Card 1: Storage left */}
               <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                   <span className="text-[10px] font-black text-slate-705 uppercase tracking-wide flex items-center gap-1">
@@ -1783,7 +1642,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                     <div
@@ -1798,7 +1656,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* Card 2: Read Daily Quota */}
               <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                   <span className="text-[10px] font-black text-slate-705 uppercase tracking-wide flex items-center gap-1">
@@ -1818,7 +1675,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                     <div
@@ -1833,7 +1689,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* Card 3: Write Daily Quota */}
               <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                   <span className="text-[10px] font-black text-slate-705 uppercase tracking-wide flex items-center gap-1">
@@ -1853,7 +1708,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                     <div
@@ -1869,7 +1723,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               </div>
             </div>
 
-            {/* Informational telemetry advice block */}
             <div className="p-2.5 bg-indigo-50/50 border border-slate-200 rounded-xl text-[9.5px] text-slate-500 leading-relaxed font-sans space-y-1">
               <span className="font-extrabold text-[#8B5CF6] uppercase block text-[8px] tracking-wider">★ Operational Protocol Advice</span>
               <p>
@@ -1888,11 +1741,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           />
         )}
 
-        {/* WORK WORKSPACE ROUNDS & ASSIGNMENT CENTER */}
+        {/* TASKS */}
         {activeTab === 'tasks' && (
           <div className="space-y-6 animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column: Create New Task Assignment Form */}
               <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3.5">
                 <div className="border-b border-amber-100 pb-2 flex items-center justify-between">
                   <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -2023,7 +1875,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </form>
               </div>
 
-              {/* Right Column: Dynamic Assignments Ledger */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
                   <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
@@ -2050,8 +1901,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                             <div className="space-y-1 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider ${task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700 border border-rose-300 animate-pulse' :
-                                    task.priority === 'HIGH' ? 'bg-amber-100 text-amber-850 border border-amber-300' :
-                                      'bg-slate-100 text-slate-700'
+                                  task.priority === 'HIGH' ? 'bg-amber-100 text-amber-850 border border-amber-300' :
+                                    'bg-slate-100 text-slate-700'
                                   }`}>
                                   {task.priority || 'MEDIUM'}
                                 </span>
@@ -2085,7 +1936,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                   const explanationRequired = newStatus === 'COMPLETED' || newStatus === 'STUCK';
                                   if (explanationRequired) {
                                     const userReply = window.prompt(`Describe what actions you took to handle this task:`, task.notes || '');
-                                    if (userReply === null) return; // cancel change if they cancelled the dialog
+                                    if (userReply === null) return;
                                     explanation = userReply.trim() || 'Handled successfully.';
                                   }
 
@@ -2142,7 +1993,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           </div>
         )}
 
-        {/* DEVICE SECURITY APPROVAL WORKFLOWS */}
+        {/* DEVICES */}
         {activeTab === 'devices' && (
           <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-4 animate-fade-in">
             <div className="border-b border-primary-50 pb-2.5 flex items-center justify-between">
@@ -2160,7 +2011,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               </span>
             </div>
 
-            {/* Search Input Filter for Registered Devices */}
             <div className="relative pt-1 font-sans">
               <Search className="absolute left-3 top-4 w-3.5 h-3.5 text-slate-400 hover:text-[#8B5CF6] transition-colors" />
               <input
@@ -2302,7 +2152,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                           <button
                             onClick={async () => {
                               const reason = prompt('Please enter the reason to permanently block this device (block history will be preserved):', employee.deviceApprovalReason || '');
-                              if (reason === null) return; // User cancelled
+                              if (reason === null) return;
                               try {
                                 const blockReason = reason.trim() || 'Permanently blocked by Admin.';
                                 await dbService.updateUser(employee.phoneNumber, {
@@ -2336,11 +2186,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           </div>
         )}
 
-        {/* SYSTEM BACKUP SNAPSHOT MANAGER CENTER */}
+        {/* BACKUPS */}
         {activeTab === 'backups' && (
           <div className="space-y-6 animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column: BACKUP CREATION CONTROLLER (Both can make, only super can restore) */}
               <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3.5">
                 <div className="border-b border-[#8B5CF6]/20 pb-2">
                   <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -2401,7 +2250,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 </div>
               </div>
 
-              {/* Right Column: Snapshots ledger and lock logic */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-3">
                   <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
@@ -2460,7 +2308,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
                               <button
                                 onClick={async () => {
-                                  // Super Admin Check directly
                                   if (!isZewdneh) {
                                     alert(`Permission Denied: Operator "${currentUser.fullName}" lacks Super Admin credentials. Snapshot rollback can only be performed by a Super Admin.`);
                                     return;
@@ -2477,8 +2324,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                                   }
                                 }}
                                 className={`px-2.5 py-1 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer ${isZewdneh
-                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'
-                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed border opacity-60'
+                                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'
+                                  : 'bg-slate-100 text-slate-400 cursor-not-allowed border opacity-60'
                                   }`}
                                 title={isZewdneh ? "Rollback system tables to snapshot state" : "Requires System Owner level clearances"}
                               >
@@ -2511,12 +2358,12 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           </div>
         )}
 
-        {/* WORKSTATION ERROR MONITORING CENTER */}
+        {/* ERRORS */}
         {activeTab === 'errors' && (
           <div className="bg-white rounded-xl border border-slate-150 p-4 shadow-3xs space-y-4 animate-fade-in text-[11px]">
             <div className="border-b border-rose-100 pb-2.5 flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-black text-rose-800 uppercase tracking-tight flex items-center gap-1.5ClassName">
+                <h3 className="text-xs font-black text-rose-800 uppercase tracking-tight flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   Admin System Error Center & Security Anomalies
                 </h3>
@@ -2530,7 +2377,6 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                   onClick={async () => {
                     if (!confirm('Are you authorized to clear all error log entries?')) return;
                     try {
-                      // Pure cloud clearance or batch deletion runs here
                       await dbService.clearSystemErrors();
                       soundService.playSuccessChime();
                       alert('Central logs wiped cleanly from cloud telemetry registries.');
@@ -2619,8 +2465,8 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 onClick={handleDeleteUser}
                 disabled={deleteConfirmPhone !== deletingUser.phoneNumber}
                 className={`flex-1 py-1.5 text-[10px] text-white uppercase tracking-wider font-extrabold rounded-lg transition-all ${deleteConfirmPhone === deletingUser.phoneNumber
-                    ? 'bg-rose-605 bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-sm'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed border'
+                  ? 'bg-rose-605 bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-sm'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed border'
                   }`}
               >
                 Destroy Registry
