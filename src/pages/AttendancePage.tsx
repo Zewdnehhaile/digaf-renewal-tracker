@@ -1,10 +1,10 @@
-// src/pages/attendance.tsx
+// src/pages/AttendancePage.tsx
 import React, { useEffect, useState } from 'react';
 import { User } from '../types';
 import AttendanceModule from '../components/AttendanceModule';
 import { ArrowLeft } from 'lucide-react';
 
-export default function Attendance() {
+export default function AttendancePage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
