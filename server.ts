@@ -116,7 +116,10 @@ async function startServer() {
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
-
+// Add this right after app.use(express.json({ limit: "15mb" }));
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
   // ============================================================
   // ==================== MONGODB API ROUTES ====================
   // ============================================================
