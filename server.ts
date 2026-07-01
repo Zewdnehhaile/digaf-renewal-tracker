@@ -1353,7 +1353,7 @@ ${langInst}
   // ============================================================
 
   if (process.env.NODE_ENV === "production") {
-    const distPath = path.join(__dirname, "dist");
+  const distPath = path.join(process.cwd(), "dist");
 
     // Explicitly handle /attendance route - BEFORE static files
     app.get('/attendance', (req, res) => {
