@@ -1,15 +1,57 @@
 // src/pages/AttendancePage.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../types';
 import AttendanceModule from '../components/AttendanceModule';
 import { ArrowLeft } from 'lucide-react';
 
 interface AttendancePageProps {
-  currentUser: User;
+  currentUser?: User;
   onBack?: () => void;
 }
 
-export default function AttendancePage({ currentUser, onBack }: AttendancePageProps) {
+export default function AttendancePage({ currentUser: propUser, onBack }: AttendancePageProps) {
+  const [currentUser, setCurrentUser] = useState<User | null>(propUser || null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // If user was passed as prop, use it
+    if (propUser) {
+      setCurrentUser(propUser);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise try to get from localStorage
+    const saved = localStorage.getItem('digaf_remembered_session');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setCurrentUser(parsed);
+      } catch (e) {
+        console.error('Failed to parse user session:', e);
+      }
+    }
+    setLoading(false);
+  }, [propUser]);
+
+  // If still loading, show spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#8B5CF6] mx-auto mb-4"></div>
+          <p className="text-slate-600 text-sm font-medium">Loading attendance desk...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no user found, redirect to login
+  if (!currentUser) {
+    window.location.href = '/';
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-6">
       <div className="max-w-7xl mx-auto mb-6">

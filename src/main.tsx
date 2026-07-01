@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { LanguageProvider } from './services/language.tsx';
 import './index.css';
-import AttendancePage from './pages/AttendancePage'; // <- Change this line
+import AttendancePage from './pages/AttendancePage';
 import { User } from './types';
 import { useState, useEffect } from 'react';
 
@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 function Root() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAttendancePage, setIsAttendancePage] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if we're on the attendance page
@@ -28,15 +29,28 @@ function Root() {
         setCurrentUser(null);
       }
     }
+    setLoading(false);
   }, []);
 
-  // If on attendance page and user is logged in
-  if (isAttendancePage && currentUser) {
+  // If still loading, show spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#8B5CF6] mx-auto mb-4"></div>
+          <p className="text-slate-600 text-sm font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If on attendance page (with or without user - AttendancePage will handle redirect)
+  if (isAttendancePage) {
     return (
       <StrictMode>
         <LanguageProvider>
           <AttendancePage 
-            currentUser={currentUser} 
+            currentUser={currentUser || undefined}
             onBack={() => {
               window.location.href = '/';
             }}
