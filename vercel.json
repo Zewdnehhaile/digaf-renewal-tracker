@@ -3,21 +3,9 @@
     {
       "src": "dist/server.cjs",
       "use": "@vercel/node"
-    },
-    {
-      "src": "dist/client/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "dist/server.cjs"
-    },
     {
       "src": "/(.*)",
       "dest": "dist/server.cjs"
