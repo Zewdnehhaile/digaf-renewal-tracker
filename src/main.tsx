@@ -1,9 +1,10 @@
+// src/main.tsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { LanguageProvider } from './services/language.tsx';
 import './index.css';
-import AttendancePage from './pages/AttendancePage';
+import AttendancePage from './pages/AttendancePage'; // <- Change this line
 import { User } from './types';
 import { useState, useEffect } from 'react';
 
