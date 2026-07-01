@@ -1008,18 +1008,18 @@ export default function App() {
                   );
                 })}
                 {/* Attendance Link */}
-                <a
-                  href="/attendance"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => {
+                    window.location.href = '/attendance';
+                  }}
                   className="w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950 pl-8"
                 >
                   <div className="flex items-center gap-2 bg-transparent">
                     <CalendarClock className="w-4 h-4 text-slate-400" />
                     <span className="text-left leading-normal">{t('Attendance Desk')}</span>
                   </div>
-                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">↗</span>
-                </a>
+                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">→</span>
+                </button>
               </nav>
             </div>
           </div>
