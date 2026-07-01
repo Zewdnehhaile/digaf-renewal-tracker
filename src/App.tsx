@@ -756,12 +756,12 @@ export default function App() {
                           setActiveTab('first_round_queue');
                         }}
                         className={`
-              w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-              ${currentRound === 'first'
+          w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+          ${currentRound === 'first'
                             ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
                             : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
                           }
-            `}
+        `}
                         id="sidebar_round_first"
                       >
                         {currentRound === 'first' && (
@@ -782,12 +782,12 @@ export default function App() {
                           setActiveTab('dashboard');
                         }}
                         className={`
-              w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-              ${currentRound === 'second'
+          w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+          ${currentRound === 'second'
                             ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
                             : 'bg-transparent text-slate-650 border-transparent hover:bg-slate-50 hover:text-slate-950'
                           }
-            `}
+        `}
                         id="sidebar_round_second"
                       >
                         {currentRound === 'second' && (
@@ -801,182 +801,172 @@ export default function App() {
                     )}
                   </nav>
                 </div>
-
-                {/* Only show these sections for Admin and Super Admin */}
-                {(currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && (
+                {currentRound === 'first' ? (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
+                      {language === 'am' ? 'ባለፉት የስራ ደረጃዎች' : language === 'om' ? 'PIPELINE STAGES' : 'PIPELINE STAGES'}
+                    </div>
+                    <nav className="space-y-1">
+                      {[
+                        { id: 'first_round_queue', label: 'First Round Queue', icon: RefreshCw, badge: String(firstRoundPendingCount), badgeColor: 'bg-violet-100 text-[#8B5CF6] border border-violet-200 shadow-3xs' },
+                        { id: 'first_round_completed', label: 'Completed Loans', icon: CheckCircle2, badge: String(firstRoundCompletedCount), badgeColor: 'bg-emerald-100 text-[#10B981] border border-emerald-200 shadow-3xs' },
+                        { id: 'first_round_reports', label: 'Daily Reports', icon: FileSpreadsheet, badge: null, badgeColor: '' },
+                        { id: 'first_round_settings', label: 'Portal Settings', icon: Monitor, badge: null, badgeColor: '' }
+                      ].map(item => {
+                        const Icon = item.icon;
+                        const isActive = activeTab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleNavigate(item.id)}
+                            className={`
+                              w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+                              ${isActive
+                                ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                                : 'bg-transparent text-slate-604 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                              }
+                            `}
+                            id={`sidebar_link_${item.id}`}
+                          >
+                            {isActive && (
+                              <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                            )}
+                            <div className="flex items-center gap-2 bg-transparent">
+                              <Icon className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
+                              <span className="truncate max-w-[145px] text-left leading-normal">
+                                {t(item.label)}
+                              </span>
+                            </div>
+                            {item.badge && (
+                              <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  </div>
+                ) : (
                   <>
-                    {currentRound === 'first' ? (
-                      // First Round sections
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
-                          {language === 'am' ? 'ባለፉት የስራ ደረጃዎች' : language === 'om' ? 'PIPELINE STAGES' : 'PIPELINE STAGES'}
-                        </div>
-                        <nav className="space-y-1">
-                          {[
-                            { id: 'first_round_queue', label: 'First Round Queue', icon: RefreshCw, badge: String(firstRoundPendingCount), badgeColor: 'bg-violet-100 text-[#8B5CF6] border border-violet-200 shadow-3xs' },
-                            { id: 'first_round_completed', label: 'Completed Loans', icon: CheckCircle2, badge: String(firstRoundCompletedCount), badgeColor: 'bg-emerald-100 text-[#10B981] border border-emerald-200 shadow-3xs' },
-                            { id: 'first_round_reports', label: 'Daily Reports', icon: FileSpreadsheet, badge: null, badgeColor: '' },
-                            { id: 'first_round_settings', label: 'Portal Settings', icon: Monitor, badge: null, badgeColor: '' }
-                          ].map(item => {
-                            const Icon = item.icon;
-                            const isActive = activeTab === item.id;
-                            return (
-                              <button
-                                key={item.id}
-                                onClick={() => handleNavigate(item.id)}
-                                className={`
-                      w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                      ${isActive
-                                    ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-                                    : 'bg-transparent text-slate-604 border-transparent hover:bg-slate-50 hover:text-slate-950'
-                                  }
-                    `}
-                                id={`sidebar_link_${item.id}`}
-                              >
-                                {isActive && (
-                                  <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-                                )}
-                                <div className="flex items-center gap-2 bg-transparent">
-                                  <Icon className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
-                                  <span className="truncate max-w-[145px] text-left leading-normal">
-                                    {t(item.label)}
-                                  </span>
-                                </div>
-                                {item.badge && (
-                                  <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
-                                    {item.badge}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </nav>
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
+                        {language === 'am' ? 'አጠቃላይ እይታ' : language === 'om' ? 'HAALA WALIGALAA' : 'OVERVIEW'}
                       </div>
-                    ) : (
-                      <>
-                        {/* Overview Section - Admin Only */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
-                            {language === 'am' ? 'አጠቃላይ እይታ' : language === 'om' ? 'HAALA WALIGALAA' : 'OVERVIEW'}
-                          </div>
-                          <nav className="space-y-1">
-                            {deskItems.map(item => {
-                              const Icon = item.icon;
-                              const isActive = activeTab === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  onClick={() => handleNavigate(item.id)}
-                                  className={`
-                        w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                        ${isActive
-                                      ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-                                      : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
-                                    }
-                      `}
-                                  id={`sidebar_link_${item.id}`}
-                                >
-                                  {isActive && (
-                                    <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-                                  )}
-                                  <div className="flex items-center gap-2 bg-transparent">
-                                    <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
-                                    <span className="text-left leading-normal">{t(item.label)}</span>
-                                  </div>
-                                  {item.badge && (
-                                    <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
-                                      {item.badge}
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </nav>
-                        </div>
+                      <nav className="space-y-1">
+                        {deskItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = activeTab === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleNavigate(item.id)}
+                              className={`
+                                w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+                                ${isActive
+                                  ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                                }
+                              `}
+                              id={`sidebar_link_${item.id}`}
+                            >
+                              {isActive && (
+                                <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                              )}
+                              <div className="flex items-center gap-2 bg-transparent">
+                                <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
+                                <span className="text-left leading-normal">{t(item.label)}</span>
+                              </div>
+                              {item.badge && (
+                                <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
+                                  {item.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </nav>
+                    </div>
 
-                        {/* Pipeline Stages - Admin Only */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
-                            {language === 'am' ? 'ባለፉት የስራ ደረጃዎች' : language === 'om' ? 'GOSA TARKAAFFIILEE' : 'CORE OPERATIONS'}
-                          </div>
-                          <nav className="space-y-1">
-                            {pipelineItems.map(item => {
-                              const Icon = item.icon;
-                              const isActive = activeTab === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  onClick={() => handleNavigate(item.id)}
-                                  className={`
-                        w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                        ${isActive
-                                      ? 'bg-indigo-50/70 text-[#4F46E5] border-indigo-100/50 shadow-3xs'
-                                      : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
-                                    }
-                      `}
-                                  id={`sidebar_link_${item.id}`}
-                                >
-                                  {isActive && (
-                                    <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#4F46E5] rounded-full" />
-                                  )}
-                                  <div className="flex items-center gap-2 bg-transparent">
-                                    <Icon className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? 'text-[#4F46E5] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
-                                    <span className="truncate max-w-[145px] text-left leading-normal">
-                                      {t(item.label)}
-                                    </span>
-                                  </div>
-                                  {item.badge && (
-                                    <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
-                                      {item.badge}
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </nav>
-                        </div>
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
+                        {language === 'am' ? 'ባለፉት የስራ ደረጃዎች' : language === 'om' ? 'GOSA TARKAAFFIILEE' : 'CORE OPERATIONS'}
+                      </div>
+                      <nav className="space-y-1">
+                        {pipelineItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = activeTab === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleNavigate(item.id)}
+                              className={`
+                                w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+                                ${isActive
+                                  ? 'bg-indigo-50/70 text-[#4F46E5] border-indigo-100/50 shadow-3xs'
+                                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                                }
+                              `}
+                              id={`sidebar_link_${item.id}`}
+                            >
+                              {isActive && (
+                                <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#4F46E5] rounded-full" />
+                              )}
+                              <div className="flex items-center gap-2 bg-transparent">
+                                <Icon className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? 'text-[#4F46E5] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
+                                <span className="truncate max-w-[145px] text-left leading-normal">
+                                  {t(item.label)}
+                                </span>
+                              </div>
+                              {item.badge && (
+                                <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
+                                  {item.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </nav>
+                    </div>
 
-                        {/* Settings Section - Admin Only */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
-                            {language === 'am' ? 'ደህንነትና ሪፖርቶች' : language === 'om' ? 'MALLATTOOLEE' : 'SETTINGS'}
-                          </div>
-                          <nav className="space-y-1">
-                            {databaseItems.map(item => {
-                              const Icon = item.icon;
-                              const isActive = activeTab === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  onClick={() => handleNavigate(item.id)}
-                                  className={`
-                        w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
-                        ${isActive
-                                      ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-                                      : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
-                                    }
-                      `}
-                                  id={`sidebar_link_${item.id}`}
-                                >
-                                  {isActive && (
-                                    <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-                                  )}
-                                  <div className="flex items-center gap-2 bg-transparent">
-                                    <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
-                                    <span className="text-left leading-normal">{t(item.label)}</span>
-                                  </div>
-                                  {item.badge && (
-                                    <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
-                                      {item.badge}
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </nav>
-                        </div>
-                      </>
-                    )}
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
+                        {language === 'am' ? 'ደህንነትና ሪፖርቶች' : language === 'om' ? 'MALLATTOOLEE' : 'SETTINGS'}
+                      </div>
+                      <nav className="space-y-1">
+                        {databaseItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = activeTab === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleNavigate(item.id)}
+                              className={`
+                                w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8
+                                ${isActive
+                                  ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                                }
+                              `}
+                              id={`sidebar_link_${item.id}`}
+                            >
+                              {isActive && (
+                                <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                              )}
+                              <div className="flex items-center gap-2 bg-transparent">
+                                <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'}`} />
+                                <span className="text-left leading-normal">{t(item.label)}</span>
+                              </div>
+                              {item.badge && (
+                                <span className={`px-2 py-0.5 rounded-full text-4xs font-black uppercase ${item.badgeColor}`}>
+                                  {item.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </nav>
+                    </div>
                   </>
                 )}
               </>
