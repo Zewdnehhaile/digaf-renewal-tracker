@@ -1343,12 +1343,13 @@ ${langInst}
 
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
 
-    // Explicitly handle /attendance route
+    // Explicitly handle /attendance route - BEFORE static files
     app.get('/attendance', (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
+
+    app.use(express.static(distPath));
 
     app.get("*", (req, res) => {
       if (req.path.startsWith("/api")) {
