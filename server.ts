@@ -108,10 +108,7 @@ async function startServer() {
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
-  app.get('/attendance', (req, res) => {
-  const indexPath = path.join(process.cwd(), process.env.NODE_ENV === "production" ? "dist" : "", "index.html");
-  res.sendFile(indexPath);
-});
+
   // ============================================================
   // ==================== MONGODB API ROUTES ====================
   // ============================================================
@@ -776,7 +773,7 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
-    // ============================================================
+  // ============================================================
   // ================ REPORTS DATA ====================
   // ============================================================
 
@@ -1347,13 +1344,21 @@ ${langInst}
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
+
+    // Explicitly handle /attendance route
+    app.get('/attendance', (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+
     app.get("*", (req, res) => {
       if (req.path.startsWith("/api")) {
         return res.status(404).json({ error: "API endpoint not found" });
       }
       res.sendFile(path.join(distPath, "index.html"));
     });
-  } else {
+  }
+
+  else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

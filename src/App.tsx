@@ -1008,12 +1008,11 @@ export default function App() {
                   );
                 })}
                 {/* Attendance Link */}
+
               
                 <button
                   onClick={() => {
-                    // Store user in sessionStorage (persists across tabs)
-                    sessionStorage.setItem('digaf_attendance_user', JSON.stringify(currentUser));
-                    window.open('/attendance', '_blank');
+                    window.location.href = '/attendance';
                   }}
                   className="w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950 pl-8"
                 >
@@ -1021,7 +1020,7 @@ export default function App() {
                     <CalendarClock className="w-4 h-4 text-slate-400" />
                     <span className="text-left leading-normal">{t('Attendance Desk')}</span>
                   </div>
-                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">↗</span>
+                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">→</span>
                 </button>
               </nav>
             </div>
