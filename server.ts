@@ -108,7 +108,10 @@ async function startServer() {
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
-
+  app.get('/attendance', (req, res) => {
+  const indexPath = path.join(process.cwd(), process.env.NODE_ENV === "production" ? "dist" : "", "index.html");
+  res.sendFile(indexPath);
+});
   // ============================================================
   // ==================== MONGODB API ROUTES ====================
   // ============================================================

@@ -21,6 +21,21 @@ export default function AttendancePage({ currentUser: propUser, onBack }: Attend
       return;
     }
 
+    // Check sessionStorage first (for cross-tab)
+    const sessionUser = sessionStorage.getItem('digaf_attendance_user');
+    if (sessionUser) {
+      try {
+        const parsed = JSON.parse(sessionUser);
+        setCurrentUser(parsed);
+        // Clean up
+        sessionStorage.removeItem('digaf_attendance_user');
+        setLoading(false);
+        return;
+      } catch (e) {
+        console.error('Failed to parse session user:', e);
+      }
+    }
+
     // Otherwise try to get from localStorage
     const saved = localStorage.getItem('digaf_remembered_session');
     if (saved) {
