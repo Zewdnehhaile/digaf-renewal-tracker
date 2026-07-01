@@ -107,8 +107,12 @@ async function startServer() {
     }
     next();
   });
-
-  await connectDB();
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error('⚠️ MongoDB connection failed, but server will continue:', err);
+    // Continue without DB - API routes will fail but frontend will work
+  }
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
