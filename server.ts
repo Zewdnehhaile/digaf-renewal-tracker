@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import 'dotenv/config';
 import express from "express";
 import path from "path";
@@ -1342,7 +1346,7 @@ ${langInst}
   // ============================================================
 
   if (process.env.NODE_ENV === "production") {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(__dirname, "dist");
 
     // Explicitly handle /attendance route - BEFORE static files
     app.get('/attendance', (req, res) => {
