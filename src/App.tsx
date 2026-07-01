@@ -1008,7 +1008,7 @@ export default function App() {
                   );
                 })}
                 {/* Attendance Link */}
-               // In App.tsx, change the attendance link to:
+              
                 <button
                   onClick={() => {
                     // Store user in sessionStorage (persists across tabs)
