@@ -50,6 +50,7 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
     });
 
     const unsubscribeChats = dbService.subscribeChats((updatedMessages) => {
+      console.log('📨 Received messages:', updatedMessages);
       setMessages(updatedMessages);
     });
 
@@ -268,7 +269,7 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
+
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -353,61 +354,53 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                 <button
                   key={user.phoneNumber}
                   onClick={() => setActiveContact(user)}
-                  className={`w-full text-left p-3.5 rounded-xl transition-all flex items-center gap-3.5 cursor-pointer group ${
-                    isSelected
+                  className={`w-full text-left p-3.5 rounded-xl transition-all flex items-center gap-3.5 cursor-pointer group ${isSelected
                       ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
                       : 'bg-transparent hover:bg-slate-100/80'
-                  }`}
+                    }`}
                 >
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-[12px] shrink-0 font-mono transition-all ${
-                    isSelected
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-[12px] shrink-0 font-mono transition-all ${isSelected
                       ? 'bg-white/20 text-white'
                       : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
-                  }`}>
+                    }`}>
                     {getInitials(user.fullName)}
                   </div>
 
                   <div className="flex-1 min-w-0 leading-tight">
                     <div className="flex justify-between items-start gap-1">
-                      <span className={`text-[12px] font-extrabold truncate block ${
-                        isSelected ? 'text-white' : 'text-slate-800'
-                      }`}>
+                      <span className={`text-[12px] font-extrabold truncate block ${isSelected ? 'text-white' : 'text-slate-800'
+                        }`}>
                         {user.fullName}
                       </span>
                       {meta && (
-                        <span className={`text-[8px] font-bold shrink-0 font-mono ${
-                          isSelected ? 'text-white/60' : 'text-slate-400'
-                        }`}>
+                        <span className={`text-[8px] font-bold shrink-0 font-mono ${isSelected ? 'text-white/60' : 'text-slate-400'
+                          }`}>
                           {meta.time}
                         </span>
                       )}
                     </div>
-                    <div className={`text-[8px] font-black uppercase tracking-wider font-mono truncate leading-none mt-0.5 ${
-                      isSelected ? 'text-white/50' : 'text-slate-400'
-                    }`}>
+                    <div className={`text-[8px] font-black uppercase tracking-wider font-mono truncate leading-none mt-0.5 ${isSelected ? 'text-white/50' : 'text-slate-400'
+                      }`}>
                       {user.customRole || user.role} · {user.workspace?.replace('_', ' ') || 'all'}
                     </div>
                     {meta ? (
-                      <p className={`text-[10px] truncate leading-tight mt-1 font-medium ${
-                        isSelected ? 'text-white/70' : 'text-slate-500'
-                      }`}>
+                      <p className={`text-[10px] truncate leading-tight mt-1 font-medium ${isSelected ? 'text-white/70' : 'text-slate-500'
+                        }`}>
                         {meta.content}
                       </p>
                     ) : (
-                      <p className={`text-[9px] italic truncate leading-tight mt-1 font-medium ${
-                        isSelected ? 'text-white/40' : 'text-slate-350'
-                      }`}>
+                      <p className={`text-[9px] italic truncate leading-tight mt-1 font-medium ${isSelected ? 'text-white/40' : 'text-slate-350'
+                        }`}>
                         No messages yet
                       </p>
                     )}
                   </div>
 
                   {ucount > 0 && (
-                    <span className={`h-5 min-w-5 px-1.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 font-mono animate-pulse ${
-                      isSelected
+                    <span className={`h-5 min-w-5 px-1.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 font-mono animate-pulse ${isSelected
                         ? 'bg-white text-[#8B5CF6]'
                         : 'bg-rose-500 text-white'
-                    }`}>
+                      }`}>
                       {ucount}
                     </span>
                   )}
@@ -484,11 +477,10 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                       key={msg.id}
                       className={`flex flex-col ${isSender ? 'items-end' : 'items-start'} space-y-1 max-w-[75%] ${isSender ? 'ml-auto' : 'mr-auto'}`}
                     >
-                      <div className={`p-4 rounded-2xl text-[13px] leading-relaxed shadow-sm ${
-                        isSender
+                      <div className={`p-4 rounded-2xl text-[13px] leading-relaxed shadow-sm ${isSender
                           ? 'bg-[#8B5CF6] text-white rounded-br-none'
                           : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
-                      }`}>
+                        }`}>
                         {msg.content}
                       </div>
 
@@ -547,11 +539,10 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
               <button
                 type="submit"
                 disabled={!messageText.trim()}
-                className={`p-3.5 rounded-xl transition-all shadow-sm shrink-0 flex items-center justify-center cursor-pointer ${
-                  messageText.trim()
+                className={`p-3.5 rounded-xl transition-all shadow-sm shrink-0 flex items-center justify-center cursor-pointer ${messageText.trim()
                     ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] active:scale-95 shadow-md shadow-[#8B5CF6]/25'
                     : 'bg-slate-100 text-slate-400 border border-slate-200'
-                }`}
+                  }`}
               >
                 <Send className="w-5 h-5" />
               </button>
@@ -619,11 +610,10 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                     <button
                       key={user.phoneNumber}
                       onClick={() => toggleMember(user.phoneNumber)}
-                      className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer ${
-                        selectedMembers.includes(user.phoneNumber)
+                      className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer ${selectedMembers.includes(user.phoneNumber)
                           ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30'
                           : 'hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-black text-[10px]">
                         {getInitials(user.fullName)}
@@ -643,11 +633,10 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
               <button
                 onClick={handleCreateGroup}
                 disabled={!groupName.trim() || selectedMembers.length < 2}
-                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                  groupName.trim() && selectedMembers.length >= 2
+                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${groupName.trim() && selectedMembers.length >= 2
                     ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md shadow-[#8B5CF6]/20'
                     : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 Create Group ({selectedMembers.length} members)
               </button>

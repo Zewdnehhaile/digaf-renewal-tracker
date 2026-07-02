@@ -109,7 +109,20 @@ export const dbService = {
   },
   subscribeAttendanceSettings: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-settings'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
 
-  subscribeChats: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/chats'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 5000); return () => clearInterval(i); },
+  // In src/services/db.ts, find the subscribeChats function (around line 80):
+  subscribeChats: (callback: (data: any[]) => void) => {
+    const f = async () => {
+      try {
+        const d = await apiRequest('/chats');
+        callback(toArray(d));
+      } catch {
+        callback([]);
+      }
+    };
+    f();
+    const i = setInterval(f, 5000);
+    return () => clearInterval(i);
+  },
 
   subscribeLogs: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/activity-logs'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
   subscribeActivityLogs: (callback: (data: any[]) => void) => dbService.subscribeLogs(callback),
