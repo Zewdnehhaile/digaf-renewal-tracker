@@ -110,18 +110,27 @@ export const dbService = {
   subscribeAttendanceSettings: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/attendance-settings'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
 
   // In src/services/db.ts, find the subscribeChats function (around line 80):
+  // In db.ts, update the subscribeChats function:
+  // In src/services/db.ts
   subscribeChats: (callback: (data: any[]) => void) => {
+    console.log('🔄 subscribeChats called');
     const f = async () => {
       try {
+        console.log('📡 Fetching chats from API...');
         const d = await apiRequest('/chats');
+        console.log('✅ Chats fetched:', d);
         callback(toArray(d));
-      } catch {
+      } catch (error) {
+        console.error('❌ Error fetching chats:', error);
         callback([]);
       }
     };
     f();
     const i = setInterval(f, 5000);
-    return () => clearInterval(i);
+    return () => {
+      console.log('🛑 Unsubscribing from chats');
+      clearInterval(i);
+    };
   },
 
   subscribeLogs: (callback: (data: any[]) => void) => { const f = async () => { try { const d = await apiRequest('/activity-logs'); callback(toArray(d)); } catch { callback([]); } }; f(); const i = setInterval(f, 10000); return () => clearInterval(i); },
@@ -493,4 +502,15 @@ export const dbService = {
       throw error;
     }
   },
+  deleteMessage: async (messageId: string) => {
+    try {
+      return await apiRequest(`/chats/${messageId}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
+    }
+  },
+
 };

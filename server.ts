@@ -339,15 +339,7 @@ async function startServer() {
     }
   });
 
-  // --- ATTENDANCE SETTINGS ---
-  app.get('/api/attendance-settings', async (req, res) => {
-    try {
-      const settings = await db.collection('attendance_settings').find({}).toArray();
-      res.json(settings);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+
 
   // --- ATTENDANCE SETTINGS ---
   app.get('/api/attendance-settings', async (req, res) => {
@@ -469,16 +461,22 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
-  // --- CHATS ---
-  app.get('/api/chats', async (req, res) => {
-    // ... existing chat code
-  });
+
   // --- CHATS ---
   app.get('/api/chats', async (req, res) => {
     try {
-      const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).toArray();
+      // Check if collection exists first
+      const collections = await db.listCollections().toArray();
+      const chatCollectionExists = collections.some(c => c.name === 'chats');
+
+      if (!chatCollectionExists) {
+        return res.json([]);
+      }
+
+      const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).limit(1000).toArray();
       res.json(chats);
     } catch (error: any) {
+      console.error('Error fetching chats:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -511,7 +509,37 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+  app.delete('/api/chats/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      let result;
 
+      // Try by id field first
+      result = await db.collection('chats').deleteOne({ id: id });
+
+      // If not found, try by _id as ObjectId
+      if (result.deletedCount === 0) {
+        try {
+          const objectId = new ObjectId(id);
+          result = await db.collection('chats').deleteOne({ _id: objectId });
+        } catch (e) { }
+      }
+
+      // If still not found, try by _id as string
+      if (result.deletedCount === 0) {
+        result = await db.collection('chats').deleteOne({ _id: id });
+      }
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Delete chat error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   // --- ACTIVITY LOGS ---
   app.get('/api/activity-logs', async (req, res) => {
     try {

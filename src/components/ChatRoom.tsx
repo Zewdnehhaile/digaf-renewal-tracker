@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, ChatMessage } from '../types';
 import { dbService } from '../services/db';
+import { notificationService } from '../services/notificationService';
 import {
   MessageSquare,
   Search,
@@ -44,14 +45,25 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
 
   // Subscribe to Users & Messages
+  // In ChatRoom.tsx, replace the subscribeChats useEffect (around line 50-60):
+  // In ChatRoom.tsx, replace the subscribeChats useEffect:
   useEffect(() => {
+    console.log('🔄 ChatRoom useEffect running');
     const unsubscribeUsers = dbService.subscribeUsers((updatedUsers) => {
-      setUsers(updatedUsers.filter(u => u.phoneNumber !== currentUser.phoneNumber));
+      const filteredUsers = updatedUsers.filter(u => u.phoneNumber !== currentUser.phoneNumber);
+      setUsers(filteredUsers);
+      console.log('👥 Users loaded:', filteredUsers.length);
     });
 
     const unsubscribeChats = dbService.subscribeChats((updatedMessages) => {
-      console.log('📨 Received messages:', updatedMessages);
-      setMessages(updatedMessages);
+      console.log('📨 All messages:', updatedMessages.length);
+      // Filter messages for the current user
+      const userMessages = updatedMessages.filter(msg =>
+        msg.sender === currentUser.phoneNumber ||
+        msg.receiver === currentUser.phoneNumber
+      );
+      setMessages(userMessages);
+      console.log('📨 User messages:', userMessages.length);
     });
 
     return () => {
@@ -59,6 +71,64 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       unsubscribeChats();
     };
   }, [currentUser.phoneNumber]);
+  // Show browser notifications for new messages// Show browser notifications for new messages
+  const lastMessageCountRef = useRef(0);
+
+  useEffect(() => {
+    console.log('🔔 Notification useEffect triggered');
+    console.log('📊 Messages count:', messages.length);
+
+    // Request permission when component mounts
+    notificationService.requestPermission();
+
+    // Update the ref with current message count on first run
+    if (lastMessageCountRef.current === 0 && messages.length > 0) {
+      lastMessageCountRef.current = messages.length;
+    }
+
+    const checkForNewMessages = () => {
+      console.log('🔍 Checking for new messages...');
+      console.log('Current messages:', messages.length, 'Last count:', lastMessageCountRef.current);
+
+      if (messages.length > lastMessageCountRef.current) {
+        console.log('✅ New message detected!');
+        // Check if the newest message is not from current user
+        const newestMsg = messages[0];
+        console.log('Newest message:', newestMsg);
+
+        if (newestMsg && newestMsg.sender !== currentUser.phoneNumber) {
+          // Find sender name
+          const sender = users.find(u => u.phoneNumber === newestMsg.sender);
+          const senderName = sender ? sender.fullName : newestMsg.sender;
+
+          console.log(`🔔 Showing notification from ${senderName}`);
+
+          // Show browser notification
+          notificationService.showBrowserNotification(
+            `📩 New message from ${senderName}`,
+            newestMsg.content.length > 60 ? newestMsg.content.substring(0, 60) + '...' : newestMsg.content,
+            undefined,
+            () => {
+              window.focus();
+              if (sender) {
+                setActiveContact(sender);
+              }
+            }
+          );
+        } else {
+          console.log('⏭️ Message is from current user, skipping notification');
+        }
+        lastMessageCountRef.current = messages.length;
+      }
+    };
+
+    checkForNewMessages();
+
+    // Set up interval to check for new messages every 3 seconds
+    const intervalId = setInterval(checkForNewMessages, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [messages, users, currentUser.phoneNumber]);
 
   // Scroll to bottom when messages or active contact changes
   useEffect(() => {
@@ -355,13 +425,13 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                   key={user.phoneNumber}
                   onClick={() => setActiveContact(user)}
                   className={`w-full text-left p-3.5 rounded-xl transition-all flex items-center gap-3.5 cursor-pointer group ${isSelected
-                      ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
-                      : 'bg-transparent hover:bg-slate-100/80'
+                    ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
+                    : 'bg-transparent hover:bg-slate-100/80'
                     }`}
                 >
                   <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-[12px] shrink-0 font-mono transition-all ${isSelected
-                      ? 'bg-white/20 text-white'
-                      : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
                     }`}>
                     {getInitials(user.fullName)}
                   </div>
@@ -398,8 +468,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
 
                   {ucount > 0 && (
                     <span className={`h-5 min-w-5 px-1.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 font-mono animate-pulse ${isSelected
-                        ? 'bg-white text-[#8B5CF6]'
-                        : 'bg-rose-500 text-white'
+                      ? 'bg-white text-[#8B5CF6]'
+                      : 'bg-rose-500 text-white'
                       }`}>
                       {ucount}
                     </span>
@@ -478,8 +548,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                       className={`flex flex-col ${isSender ? 'items-end' : 'items-start'} space-y-1 max-w-[75%] ${isSender ? 'ml-auto' : 'mr-auto'}`}
                     >
                       <div className={`p-4 rounded-2xl text-[13px] leading-relaxed shadow-sm ${isSender
-                          ? 'bg-[#8B5CF6] text-white rounded-br-none'
-                          : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                        ? 'bg-[#8B5CF6] text-white rounded-br-none'
+                        : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
                         }`}>
                         {msg.content}
                       </div>
@@ -540,8 +610,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                 type="submit"
                 disabled={!messageText.trim()}
                 className={`p-3.5 rounded-xl transition-all shadow-sm shrink-0 flex items-center justify-center cursor-pointer ${messageText.trim()
-                    ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] active:scale-95 shadow-md shadow-[#8B5CF6]/25'
-                    : 'bg-slate-100 text-slate-400 border border-slate-200'
+                  ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] active:scale-95 shadow-md shadow-[#8B5CF6]/25'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200'
                   }`}
               >
                 <Send className="w-5 h-5" />
@@ -611,8 +681,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                       key={user.phoneNumber}
                       onClick={() => toggleMember(user.phoneNumber)}
                       className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer ${selectedMembers.includes(user.phoneNumber)
-                          ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30'
-                          : 'hover:bg-slate-50'
+                        ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30'
+                        : 'hover:bg-slate-50'
                         }`}
                     >
                       <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-black text-[10px]">
@@ -634,8 +704,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                 onClick={handleCreateGroup}
                 disabled={!groupName.trim() || selectedMembers.length < 2}
                 className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${groupName.trim() && selectedMembers.length >= 2
-                    ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md shadow-[#8B5CF6]/20'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md shadow-[#8B5CF6]/20'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   }`}
               >
                 Create Group ({selectedMembers.length} members)
