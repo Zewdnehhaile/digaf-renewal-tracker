@@ -982,41 +982,47 @@ export default function App() {
 
             {/* Category 4: Attendance Desk */}
 
-
             {/* Category 5: Communications */}
             <div className="space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-3 py-1">
                 {language === 'am' ? 'መልእክት' : language === 'om' ? 'KUNYEE CHAT' : 'COMMUNICATIONS'}
               </div>
               <nav className="space-y-1">
-                {chatItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    // In App.tsx, update the attendance link onClick:
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        // Store user in both storages for cross-tab support
-                        const userJson = JSON.stringify(currentUser);
-                        localStorage.setItem('digaf_remembered_session', userJson);
-                        sessionStorage.setItem('digaf_attendance_user', userJson);
-                        window.location.href = '/attendance';
-                      }}
-                      className="w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950 pl-8"
-                    >
-                      <div className="flex items-center gap-2 bg-transparent">
-                        <CalendarClock className="w-4 h-4 text-slate-400" />
-                        <span className="text-left leading-normal">{t('Attendance Desk')}</span>
-                      </div>
-                      <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">→</span>
-                    </button>
-                  );
-                })}
-                {/* Attendance Link */}
+                {/* Chat Room Link */}
+                <button
+                  key="chat"
+                  onClick={() => handleNavigate('chat')}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8 ${activeTab === 'chat'
+                      ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                      : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                    }`}
+                >
+                  {activeTab === 'chat' && (
+                    <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
+                  )}
+                  <div className="flex items-center gap-2 bg-transparent">
+                    <MessageSquare className={`w-4 h-4 shrink-0 transition-transform ${activeTab === 'chat' ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'
+                      }`} />
+                    <span className="text-left leading-normal">{t('Staff Chat Room')}</span>
+                  </div>
+                </button>
 
-
-
+                {/* Attendance Desk Link */}
+                <button
+                  onClick={() => {
+                    const userJson = JSON.stringify(currentUser);
+                    localStorage.setItem('digaf_remembered_session', userJson);
+                    sessionStorage.setItem('digaf_attendance_user', userJson);
+                    window.location.href = '/attendance';
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950 pl-8"
+                >
+                  <div className="flex items-center gap-2 bg-transparent">
+                    <CalendarClock className="w-4 h-4 text-slate-400" />
+                    <span className="text-left leading-normal">{t('Attendance Desk')}</span>
+                  </div>
+                  <span className="text-[8px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">→</span>
+                </button>
               </nav>
             </div>
           </div>

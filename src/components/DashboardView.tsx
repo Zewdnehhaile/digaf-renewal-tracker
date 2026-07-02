@@ -3,6 +3,7 @@ import { Customer, ActivityLog, User, AIConfig, OfficerAIPermission } from '../t
 import { getTodayDateString } from '../services/db';
 import { Users, UserCheck, Clock, Calendar, CheckCircle2, XCircle } from 'lucide-react';
 import { useLanguage } from '../services/language';
+import QuickControllerView from './QuickControllerView';
 
 interface DashboardViewProps {
   customers: Customer[];
@@ -53,6 +54,14 @@ export default function DashboardView({
           {t('System Time Reference:')} {todayStr}
         </div>
       </div>
+
+      {/* Quick Controller with all customers */}
+      <QuickControllerView 
+        customers={customers} 
+        logs={logs} 
+        currentUser={currentUser} 
+        onNavigateToReports={() => onNavigate('reports')} 
+      />
 
       {/* Attendance & Leave Stats - Executive View Only */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

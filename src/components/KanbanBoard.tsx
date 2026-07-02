@@ -206,7 +206,7 @@ export default function KanbanBoard({
   const statusName = focusedStatus || 'Renewal Processing';
   const isRenewalProcessing = focusedStatus === 'Renewal Processing' || !focusedStatus;
 
-  // Add Customer - with Blacklist check
+  // Add Customer - with Blacklist check and duplicate detection with status
   const handleAddApplicant = async () => {
     if (!applicantText.trim()) {
       alert('❌ Please enter applicant details.');
@@ -217,17 +217,29 @@ export default function KanbanBoard({
     let newCustomers: any[] = [];
     const skippedDuplicates: string[] = [];
 
+    const allCustomers = propCustomers || customers;
+    const existingToday = allCustomers.filter(c => {
+      const addedToday = c.addedDate && c.addedDate.split('T')[0] === today;
+      const updatedToday = c.updatedDate && c.updatedDate.split('T')[0] === today;
+      return addedToday || updatedToday;
+    });
+
     const todayNames = new Set(
-      customers
-        .filter(c => c.addedDate && c.addedDate.split('T')[0] === today)
-        .map(c => c.name.trim().toLowerCase())
+      existingToday.map(c => c.name.trim().toLowerCase())
     );
+
+    // Store status info for duplicate detection
+    const existingCustomerMap = new Map();
+    existingToday.forEach(c => {
+      existingCustomerMap.set(c.name.trim().toLowerCase(), c.status);
+    });
 
     if (inputMode === 'single') {
       const [name, phone, notes, ...rest] = lines;
       const nameTrim = name ? name.trim() : '';
       if (nameTrim && todayNames.has(nameTrim.toLowerCase())) {
-        alert(`❌ "${nameTrim}" already exists today.`);
+        const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
+        alert(`❌ "${nameTrim}" already exists today with status "${existingStatus}".\n\nYou cannot add the same customer twice in one day.`);
         return;
       }
       if (nameTrim) {
@@ -256,7 +268,8 @@ export default function KanbanBoard({
         const nameTrim = name.trim();
         if (nameTrim) {
           if (todayNames.has(nameTrim.toLowerCase())) {
-            skippedDuplicates.push(nameTrim);
+            const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
+            skippedDuplicates.push(`${nameTrim} (${existingStatus})`);
           } else {
             // BLACKLIST CHECK for bulk mode
             // Note: For bulk, we'll check after processing all names
@@ -317,7 +330,7 @@ export default function KanbanBoard({
 
       let successMsg = `✅ ${newCustomers.length} applicant(s) added successfully!`;
       if (skippedDuplicates.length > 0) {
-        successMsg += ` Skipped ${skippedDuplicates.length}`;
+        successMsg += `\n\nSkipped duplicates:\n${skippedDuplicates.join('\n')}`;
       }
       alert(successMsg);
 
@@ -385,10 +398,22 @@ export default function KanbanBoard({
   };
 
   // Copy
+  // Replace the handleCopy function with this:
   const handleCopy = async (customer: Customer) => {
-    const text = `Name: ${customer.name}\nPhone: ${customer.phoneNumber}\nStatus: ${customer.status}\nAdded: ${customer.addedDate}\nNotes: ${customer.notes || 'N/A'}`;
+    const text = customer.name;
     await navigator.clipboard.writeText(text);
-    alert('📋 Copied to clipboard!');
+
+    // Show temporary feedback without alert
+    const button = document.activeElement as HTMLElement;
+    if (button) {
+      const originalText = button.innerHTML;
+      button.innerHTML = '✅ Copied!';
+      button.style.color = '#10B981';
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.style.color = '';
+      }, 1500);
+    }
   };
 
   // Status change - with proper refresh
@@ -414,7 +439,9 @@ export default function KanbanBoard({
       await dbService.updateCustomer(updateId, {
         status: targetStatus,
         lastStatusChangedBy: activeOfficer,
-        lastStatusChangedAt: new Date().toISOString()
+        lastStatusChangedAt: new Date().toISOString(),
+        updatedBy: activeOfficer,  // Add this line
+        updatedDate: new Date().toISOString()  // Also ensure updatedDate is set
       }, activeOfficer);
 
       if (onAddLog) {
@@ -493,56 +520,58 @@ export default function KanbanBoard({
     }
   };
 
- // Edit - with proper refresh and blacklist check
-const handleEditSave = async () => {
+  // Edit - with proper refresh and blacklist check
+  const handleEditSave = async () => {
     if (!editingCustomer) return;
 
     const customerId = editingCustomer.id || editingCustomer._id;
 
     // BLACKLIST CHECK - Check if the edited phone number is blacklisted
     if (editFormData.phoneNumber && editFormData.phoneNumber !== editingCustomer.phoneNumber) {
-        const blacklistCheck = await dbService.checkBlacklist(editFormData.phoneNumber);
-        if (blacklistCheck && blacklistCheck.status === 'Blocked') {
-            alert(`⚠️ This phone number "${editFormData.phoneNumber}" exists in Blacklist!\n\nReason: ${blacklistCheck.reason}\n\nThis customer cannot be updated unless approved by Admin.`);
-            return;
-        }
+      const blacklistCheck = await dbService.checkBlacklist(editFormData.phoneNumber);
+      if (blacklistCheck && blacklistCheck.status === 'Blocked') {
+        alert(`⚠️ This phone number "${editFormData.phoneNumber}" exists in Blacklist!\n\nReason: ${blacklistCheck.reason}\n\nThis customer cannot be updated unless approved by Admin.`);
+        return;
+      }
     }
 
     setCustomers(prev =>
-        prev.map(c =>
-            (c.id === customerId || c._id === customerId)
-                ? { ...c, ...editFormData, updatedDate: new Date().toISOString() }
-                : c
-        )
+      prev.map(c =>
+        (c.id === customerId || c._id === customerId)
+          ? { ...c, ...editFormData, updatedDate: new Date().toISOString() }
+          : c
+      )
     );
 
     try {
-        delete editFormData._id;
-        await dbService.updateCustomer(customerId, {
-            ...editFormData,
-            lastEditedBy: activeOfficer,
-            lastEditedAt: new Date().toISOString()
-        }, activeOfficer);
-        setEditingCustomer(null);
-        alert('✅ Customer updated successfully!');
-        
-        // Refresh to update counts
-        await fetchCustomers();
-        if (onRefresh) {
-            await onRefresh();
-        }
+      delete editFormData._id;
+      await dbService.updateCustomer(customerId, {
+        ...editFormData,
+        lastEditedBy: activeOfficer,
+        lastEditedAt: new Date().toISOString(),
+        updatedBy: activeOfficer,  // Add this line
+        updatedDate: new Date().toISOString()  // Also ensure updatedDate is set
+      }, activeOfficer);
+      setEditingCustomer(null);
+      alert('✅ Customer updated successfully!');
+
+      // Refresh to update counts
+      await fetchCustomers();
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (error) {
-        console.error('Error updating customer:', error);
-        setCustomers(prev =>
-            prev.map(c =>
-                (c.id === customerId || c._id === customerId)
-                    ? { ...c, ...editingCustomer }
-                    : c
-            )
-        );
-        alert('❌ Failed to update customer.');
+      console.error('Error updating customer:', error);
+      setCustomers(prev =>
+        prev.map(c =>
+          (c.id === customerId || c._id === customerId)
+            ? { ...c, ...editingCustomer }
+            : c
+        )
+      );
+      alert('❌ Failed to update customer.');
     }
-};
+  };
 
   const isRenewalProcessingPage = focusedStatus === 'Renewal Processing' || !focusedStatus;
 
@@ -700,6 +729,9 @@ const handleEditSave = async () => {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                       <span><span className="font-medium">Added by:</span> {customer.addedBy || activeOfficer}</span>
+                      {customer.updatedBy && (
+                        <span><span className="font-medium">Last edit by:</span> {customer.updatedBy}</span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {customer.addedDate ? formatDateWithTime(customer.addedDate) : 'N/A'}
@@ -708,7 +740,6 @@ const handleEditSave = async () => {
                         <span className="flex items-center gap-1 text-amber-600">
                           <Edit className="w-3 h-3" />
                           Edited: {formatDateWithTime(customer.updatedDate)}
-                          {customer.updatedBy && ` by ${customer.updatedBy}`}
                         </span>
                       )}
                       {customer.followUpDate && (
