@@ -59,9 +59,16 @@ export default function BlacklistManager({ currentUser }: BlacklistManagerProps)
     entry.reason.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handle add/edit
+  // Replace the handleSubmit function with this version that validates exact phone number
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate phone number is not the default placeholder
+    if (formData.phoneNumber === '+251 900 000 000' || formData.phoneNumber === '251900000000' || formData.phoneNumber === '900000000') {
+      alert('❌ Please enter a valid, real phone number. Default placeholder numbers are not allowed.');
+      return;
+    }
+
     try {
       if (editingEntry) {
         await dbService.updateBlacklistEntry(editingEntry.id, formData);
@@ -313,19 +320,17 @@ export default function BlacklistManager({ currentUser }: BlacklistManagerProps)
           {filteredEntries.map((entry) => (
             <div
               key={entry.id}
-              className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow ${
-                entry.status === 'Blocked' ? 'border-red-200' : 'border-emerald-200'
-              }`}
+              className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow ${entry.status === 'Blocked' ? 'border-red-200' : 'border-emerald-200'
+                }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <h4 className="font-bold text-slate-800">{entry.fullName}</h4>
-                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full border ${
-                      entry.status === 'Blocked'
+                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full border ${entry.status === 'Blocked'
                         ? 'bg-red-50 text-red-700 border-red-200'
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}>
+                      }`}>
                       {entry.status}
                     </span>
                   </div>
@@ -342,11 +347,10 @@ export default function BlacklistManager({ currentUser }: BlacklistManagerProps)
                 <div className="flex gap-2 ml-4">
                   <button
                     onClick={() => toggleStatus(entry)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      entry.status === 'Blocked'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${entry.status === 'Blocked'
                         ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                         : 'bg-red-50 hover:bg-red-100 text-red-700'
-                    }`}
+                      }`}
                   >
                     {entry.status === 'Blocked' ? 'Approve' : 'Block'}
                   </button>

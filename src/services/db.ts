@@ -289,7 +289,7 @@ export const dbService = {
   },
 
   // ==================== GUARANTORS ====================
-  
+
 
   addGuarantor: async (guarantor: any) => {
     try {
@@ -383,7 +383,61 @@ export const dbService = {
     callback([]);
     return () => { };
   },
-  subscribeLeaveRequests: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
+  // Add these methods to dbService in src/services/db.ts
+
+  // Get all leave requests
+  getLeaveRequests: async () => {
+    try {
+      const data = await apiRequest('/leave-requests');
+      return data;
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
+      return [];
+    }
+  },
+
+  // Create a new leave request
+  createLeaveRequest: async (leaveRequest: any) => {
+    try {
+      const data = await apiRequest('/leave-requests', {
+        method: 'POST',
+        data: leaveRequest
+      });
+      return data;
+    } catch (error) {
+      console.error('Error creating leave request:', error);
+      throw error;
+    }
+  },
+
+  // Update a leave request (approve/reject)
+  updateLeaveRequest: async (id: string, status: 'Approved' | 'Rejected', reviewedBy: string) => {
+    try {
+      const data = await apiRequest(`/leave-requests/${id}`, {
+        method: 'PUT',
+        data: { status, reviewedBy, reviewedAt: new Date().toISOString() }
+      });
+      return data;
+    } catch (error) {
+      console.error('Error updating leave request:', error);
+      throw error;
+    }
+  },
+
+  // Subscribe to leave requests (real-time updates)
+  subscribeLeaveRequests: (callback: (data: any[]) => void) => {
+    const f = async () => {
+      try {
+        const d = await dbService.getLeaveRequests();
+        callback(d);
+      } catch {
+        callback([]);
+      }
+    };
+    f();
+    const i = setInterval(f, 10000);
+    return () => clearInterval(i);
+  },
   subscribeAttendanceExceptions: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
   subscribeAttendanceCorrections: (callback: (data: any[]) => void) => { callback([]); return () => { }; },
   subscribeWorkAssignments: (callback: (data: any[]) => void) => { callback([]); return () => { }; },

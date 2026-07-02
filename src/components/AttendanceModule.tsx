@@ -1244,6 +1244,7 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
     }
   };
   // Leave submit
+  // In AttendanceModule.tsx, find the handleLeaveSubmit function (around line 1050)
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leaveReason.trim()) {
@@ -1286,6 +1287,8 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
   };
 
   // Leave review
+  // In AttendanceModule.tsx, find the handleLeaveReview function
+  // In AttendanceModule.tsx, find the handleLeaveReview function and add notification creation
   const handleLeaveReview = async (reqId: string, status: 'Approved' | 'Rejected') => {
     try {
       await dbService.updateLeaveRequest(reqId, status, currentUser.fullName);
@@ -1311,6 +1314,34 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
           status: matchingReq.type as AttendanceStatus
         };
         await dbService.saveAttendanceRecord(newAttRecord);
+
+        // Create notification for the employee
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: matchingReq.phoneNumber,
+            type: 'finance_approval',
+            title: '✅ Leave Request Approved',
+            message: `Your ${matchingReq.type} request for ${matchingReq.date} has been approved.`,
+            relatedId: reqId,
+            relatedType: 'leave'
+          })
+        });
+      } else if (matchingReq && status === 'Rejected') {
+        // Create notification for rejection
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: matchingReq.phoneNumber,
+            type: 'system_alert',
+            title: '❌ Leave Request Rejected',
+            message: `Your ${matchingReq.type} request for ${matchingReq.date} was rejected.`,
+            relatedId: reqId,
+            relatedType: 'leave'
+          })
+        });
       }
     } catch (err) {
       alert('Review action error.');
@@ -3397,9 +3428,6 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
                 <table className="w-full text-left text-[10px]">
                   <thead>
                     <tr className="bg-slate-50 text-slate-455 border-b border-slate-155 text-[8px] uppercase tracking-wider font-extrabold font-mono">
-                      <th className="p-2.5">Employee</th>
-                      <th className="p-2.5">Date</th>
-                      <th className="p-2.5">Time</th>
                       <th className="p-2.5">Status</th>
                       <th className="p-2.5 text-right">Action</th>
                     </tr>
@@ -3426,21 +3454,20 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
                                 const updatedRecord = { ...r, status: newStatus };
                                 await dbService.saveAttendanceRecord(updatedRecord);
                                 alert(`✅ ${r.employeeName} status updated to "${newStatus}"`);
-                                // Refresh the page to show updated data
                                 window.location.reload();
                               } catch (err) {
                                 alert('❌ Failed to update status.');
                               }
                             }}
                             className={`px-2 py-1 rounded font-black uppercase text-[8px] border-0 cursor-pointer ${r.status === 'Present' || r.status === 'Afternoon Present'
-                                ? 'bg-emerald-50 text-emerald-800'
-                                : r.status === 'Late' || r.status === 'Afternoon Late'
-                                  ? 'bg-amber-50 text-amber-800'
-                                  : r.status === 'VERY LATE'
-                                    ? 'bg-red-100 text-red-800'
-                                    : r.status === 'Absent'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : r.status === 'Late' || r.status === 'Afternoon Late'
+                                ? 'bg-amber-50 text-amber-800'
+                                : r.status === 'VERY LATE'
+                                  ? 'bg-red-100 text-red-800'
+                                  : r.status === 'Absent'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
                               }`}
                           >
                             <option value="Present">Present</option>
@@ -3457,28 +3484,19 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
                           </select>
                         </td>
                         <td className="p-2.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Save Button */}
-                            <button
-                              onClick={async () => {
-                                // Re-fetch to ensure latest data
-                                const data = await dbService.getAttendanceRecords();
-                                setRecords(data);
-                                showFeedback('✅ Records refreshed');
-                              }}
-                              className="text-indigo-500 hover:text-indigo-700 cursor-pointer p-1"
-                              title="Refresh"
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeletingRecordId(r.id)}
-                              className="text-rose-500 hover:text-rose-700 cursor-pointer p-1"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await dbService.saveAttendanceRecord(r);
+                                alert(`✅ ${r.employeeName}'s status saved as "${r.status}"`);
+                              } catch (err) {
+                                alert('❌ Failed to save status.');
+                              }
+                            }}
+                            className="px-3 py-1 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-[8px] font-black uppercase rounded-lg transition-all"
+                          >
+                            Save
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -3530,9 +3548,13 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
                 {showRecoveryDropdown && (
                   <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
                     {users.filter(u => {
-                      if (u.phoneNumber === currentUser.phoneNumber) return false;
-                      const term = recoverySearchText.toLowerCase();
-                      return u.fullName.toLowerCase().includes(term) || u.phoneNumber.includes(term);
+                      // Show ALL active employees including current user
+                      if (u.status !== 'active') return false;
+                      const term = recoverySearchText.toLowerCase().trim();
+                      if (!term) return true;
+                      return u.fullName.toLowerCase().includes(term) ||
+                        u.phoneNumber.includes(term) ||
+                        (u.customRole && u.customRole.toLowerCase().includes(term));
                     }).map(emp => (
                       <button
                         type="button"
@@ -3542,11 +3564,21 @@ export default function AttendanceModule({ currentUser }: AttendanceModuleProps)
                           setRecoverySearchText(emp.fullName);
                           setShowRecoveryDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-all font-bold"
+                        className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-all font-bold text-[10px]"
                       >
                         {emp.fullName} <span className="text-[8px] text-[#8B5CF6]">{emp.phoneNumber}</span>
+                        <span className="text-[8px] text-slate-400 ml-2">{emp.customRole || emp.role}</span>
                       </button>
                     ))}
+                    {users.filter(u => u.status === 'active' &&
+                      (recoverySearchText.toLowerCase().trim() === '' ||
+                        u.fullName.toLowerCase().includes(recoverySearchText.toLowerCase().trim()) ||
+                        u.phoneNumber.includes(recoverySearchText.trim()))
+                    ).length === 0 && recoverySearchText.trim() !== '' && (
+                        <div className="px-3 py-2 text-slate-400 text-[9px] italic">
+                          No employees found matching "{recoverySearchText}"
+                        </div>
+                      )}
                   </div>
                 )}
               </div>

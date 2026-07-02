@@ -214,7 +214,7 @@ export default function KanbanBoard({
     }
 
     const lines = applicantText.split('\n').filter(line => line.trim());
-    const newCustomers: any[] = [];
+    let newCustomers: any[] = [];
     const skippedDuplicates: string[] = [];
 
     const todayNames = new Set(

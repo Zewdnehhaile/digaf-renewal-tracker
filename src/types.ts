@@ -278,28 +278,28 @@ export interface AttendanceException {
   employeeRole: string;
   device: string;
   location: string;
-  exceptionType: 
-    | 'Outside Office Attempt'
-    | 'GPS Accuracy Failure'
-    | 'New Device Attempt'
-    | 'Device Approval Pending'
-    | 'Duplicate Attendance Attempt'
-    | 'Offline Attendance Sync'
-    | 'Late Attendance'
-    | 'Very Late Attendance'
-    | 'Manual Attendance Correction'
-    | 'Time Manipulation Attempt'
-    | 'Clock Synchronization Failure'
-    | 'Geofence Rejection'
-    | 'OFFLINE TIME ANOMALY'
-    | 'ACCOUNT SHARING SUSPECTED'
-    | 'ACCOUNT SHARING BLOCKED'
-    | 'ADMIN SECURITY RECOVERY'
-    | 'No Face Detected'
-    | 'Multiple Faces Detected'
-    | 'Camera Permission Denied'
-    | 'Poor Image Quality'
-    | 'Selfie Verification Failed';
+  exceptionType:
+  | 'Outside Office Attempt'
+  | 'GPS Accuracy Failure'
+  | 'New Device Attempt'
+  | 'Device Approval Pending'
+  | 'Duplicate Attendance Attempt'
+  | 'Offline Attendance Sync'
+  | 'Late Attendance'
+  | 'Very Late Attendance'
+  | 'Manual Attendance Correction'
+  | 'Time Manipulation Attempt'
+  | 'Clock Synchronization Failure'
+  | 'Geofence Rejection'
+  | 'OFFLINE TIME ANOMALY'
+  | 'ACCOUNT SHARING SUSPECTED'
+  | 'ACCOUNT SHARING BLOCKED'
+  | 'ADMIN SECURITY RECOVERY'
+  | 'No Face Detected'
+  | 'Multiple Faces Detected'
+  | 'Camera Permission Denied'
+  | 'Poor Image Quality'
+  | 'Selfie Verification Failed';
   actionTaken: string;
   timestamp: string;
 }
@@ -412,4 +412,58 @@ export interface NonBorrower {
   dateAdded: string;
   createdAt?: string;
   updatedAt?: string;
+}
+// Add these types after the existing interfaces in src/types.ts
+
+// ==================== EARLY PAYMENT CLOSURE ====================
+export interface EarlyPaymentRecord {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  loanId?: string;
+  totalInstallments: number;
+  currentInstallment: number;
+  status: 'Partial' | 'Fully Closed' | 'Pending';
+  receipts: PaymentReceipt[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  closedBy?: string;
+  financeVerifiedBy?: string;
+  financeVerifiedAt?: string;
+}
+
+export interface PaymentReceipt {
+  id: string;
+  installmentNumber: number;
+  receiptUrl: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  status: 'Pending' | 'Verified' | 'Rejected';
+  verifiedBy?: string;
+  verifiedAt?: string;
+  notes?: string;
+}
+
+export interface EarlyPaymentSettings {
+  id: string;
+  autoReminderDays: number;
+  reminderMessage: string;
+  financeApprovalRequired: boolean;
+  updatedBy: string;
+  updatedAt: string;
+}
+// ==================== NOTIFICATIONS ====================
+// ==================== NOTIFICATIONS ====================
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'personal_message' | 'group_message' | 'mention' | 'admin_announcement' | 'finance_approval' | 'system_alert';
+  title: string;
+  message: string;
+  read: boolean;
+  relatedId?: string;
+  relatedType?: 'chat' | 'customer' | 'leave' | 'attendance' | 'payment';
+  createdAt: string;
+  readAt?: string;
 }

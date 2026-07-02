@@ -13,8 +13,8 @@ import FollowUpToday from './components/FollowUpToday';
 import ReportsView from './components/ReportsView';
 import LoginScreen from './components/LoginScreen';
 import AdminDashboard from './components/AdminDashboard';
-
-
+import EarlyPaymentClosure from './components/EarlyPaymentClosure';
+import NotificationBell from './components/NotificationBell';
 import ChatRoom from './components/ChatRoom';
 import BlacklistManager from './components/BlacklistManager';
 import GuarantorManager from './components/GuarantorManager';
@@ -432,6 +432,13 @@ export default function App() {
       badgeColor: ''
     },
     {
+      id: 'early_payment',
+      label: 'Early Payment Closure',
+      icon: Coins,
+      badge: null,
+      badgeColor: ''
+    },
+    {
       id: 'blacklist',
       label: 'Blacklist Manager',
       icon: ShieldAlert,
@@ -699,6 +706,7 @@ export default function App() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 {t('Active Officer')}: {currentUser.fullName}
               </div>
+              <NotificationBell userId={currentUser.phoneNumber} userName={currentUser.fullName} />
               <button
                 onClick={handleLogout}
                 className="p-1 px-3 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border border-slate-200 text-slate-600 text-[11px] font-black rounded-lg transition-all cursor-pointer flex items-center gap-1 uppercase"
@@ -987,6 +995,7 @@ export default function App() {
                   return (
                     // In App.tsx, update the attendance link onClick:
                     <button
+                      key={item.id}
                       onClick={() => {
                         // Store user in both storages for cross-tab support
                         const userJson = JSON.stringify(currentUser);
@@ -1041,64 +1050,14 @@ export default function App() {
 
         {/* 3. WORKING PORTFOLIO SCREEN AREA */}
         <main className="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden min-h-[calc(100vh-57px)]">
-          {/* Admin Workspace Round Controller - ONLY for admins and super_admins */}
-          {(currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && (
-            <div className="mb-6 bg-slate-50 border border-slate-200/80 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-3xs animate-fade-in">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#8B5CF6]" />
-                <div>
-                  <h4 className="text-[11.5px] font-extrabold uppercase tracking-wide text-slate-800">
-                    System Workspace Controller
-                  </h4>
-                  <p className="text-[9.5px] text-slate-500 font-medium">
-                    Select active workspace segment to view and manage portfolios
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex bg-slate-200/60 p-1 rounded-xl w-fit border border-slate-200/30">
-                <button
-                  onClick={() => {
-                    setSelectedRoundFilter('both');
-                    setCurrentRound('second');
-                    setActiveTab('dashboard');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'both'
-                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                    : 'text-slate-600 hover:text-slate-900 border-transparent'
-                    }`}
-                >
-                  Both Sections (Full Page)
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedRoundFilter('first_round');
-                    setCurrentRound('first');
-                    setActiveTab('first_round_queue');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'first_round'
-                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                    : 'text-slate-600 hover:text-slate-900 border-transparent'
-                    }`}
-                >
-                  1st Round Section
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedRoundFilter('second_round');
-                    setCurrentRound('second');
-                    setActiveTab('dashboard');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-3xs font-black uppercase tracking-wider transition-all cursor-pointer ${selectedRoundFilter === 'second_round'
-                    ? 'bg-white text-[#8B5CF6] shadow-3xs font-black'
-                    : 'text-slate-600 hover:text-slate-900 border-transparent'
-                    }`}
-                >
-                  2nd Round Section
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Admin Workspace Round Controller - REMOVED for Executive Dashboard */}
+          {/* 
+{(currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && (
+  <div className="mb-6 bg-slate-50 border border-slate-200/80 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-3xs animate-fade-in">
+    ...
+  </div>
+)}
+*/}
 
           {currentRound === 'first' && activeTab === 'first_round_queue' && (
             <FirstRoundQueue currentUser={currentUser!} />
@@ -1183,6 +1142,10 @@ export default function App() {
             <ChatRoom
               currentUser={currentUser!}
             />
+          )}
+
+          {activeTab === 'early_payment' && (
+            <EarlyPaymentClosure currentUser={currentUser!} />
           )}
         </main>
       </div>

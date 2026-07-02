@@ -116,10 +116,10 @@ async function startServer() {
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
-// Add this right after app.use(express.json({ limit: "15mb" }));
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
-});
+  // Add this right after app.use(express.json({ limit: "15mb" }));
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
   // ============================================================
   // ==================== MONGODB API ROUTES ====================
   // ============================================================
@@ -351,6 +351,130 @@ app.get('/health', (req, res) => {
     }
   });
 
+  // --- ATTENDANCE SETTINGS ---
+  app.get('/api/attendance-settings', async (req, res) => {
+    try {
+      const settings = await db.collection('attendance_settings').find({}).toArray();
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- LEAVE REQUESTS ---
+  app.get('/api/leave-requests', async (req, res) => {
+    try {
+      const requests = await db.collection('leave_requests').find({}).sort({ timestamp: -1 }).toArray();
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/leave-requests', async (req, res) => {
+    try {
+      const request = req.body;
+      if (!request.createdAt) request.createdAt = new Date().toISOString();
+      if (!request.updatedAt) request.updatedAt = new Date().toISOString();
+      const result = await db.collection('leave_requests').insertOne(request);
+      res.json({ _id: result.insertedId, ...request });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/leave-requests/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      updates.updatedAt = new Date().toISOString();
+      delete updates._id;
+
+      const result = await db.collection('leave_requests').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Leave request not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // --- NOTIFICATIONS ---
+  app.get('/api/notifications/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const notifications = await db.collection('notifications')
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/notifications', async (req, res) => {
+    try {
+      const notification = req.body;
+      if (!notification.createdAt) notification.createdAt = new Date().toISOString();
+      if (!notification.read) notification.read = false;
+      if (!notification.id) notification.id = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const result = await db.collection('notifications').insertOne(notification);
+      res.json({ _id: result.insertedId, ...notification });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/notifications/:id/read', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('notifications').updateOne(
+        { id: id },
+        { $set: { read: true, readAt: new Date().toISOString() } }
+      );
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/notifications/:userId/read-all', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      await db.collection('notifications').updateMany(
+        { userId, read: false },
+        { $set: { read: true, readAt: new Date().toISOString() } }
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/notifications/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('notifications').deleteOne({ id: id });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // --- CHATS ---
+  app.get('/api/chats', async (req, res) => {
+    // ... existing chat code
+  });
   // --- CHATS ---
   app.get('/api/chats', async (req, res) => {
     try {
@@ -1353,7 +1477,7 @@ ${langInst}
   // ============================================================
 
   if (process.env.NODE_ENV === "production") {
-  const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(process.cwd(), "dist");
 
     // Explicitly handle /attendance route - BEFORE static files
     app.get('/attendance', (req, res) => {
