@@ -206,23 +206,23 @@ export default function App() {
       window.addEventListener(ev, handleResetActivity);
     });
 
-    const activityTracker = setInterval(() => {
-      const elapsedMs = Date.now() - lastActivity;
-      const timeoutMs = 10 * 60 * 1000;
+    //const activityTracker = setInterval(() => {
+      //const elapsedMs = Date.now() - lastActivity;
+      //const timeoutMs = 10 * 60 * 1000;
 
-      if (elapsedMs >= timeoutMs) {
-        localStorage.removeItem('digaf_remembered_session');
-        setCurrentUser(null);
-        setInactivityNotice('Your session has automatically logged out due to inactivity.');
-        setActiveTab('dashboard');
-      }
-    }, 4000);
+      //if (elapsedMs >= timeoutMs) {
+      //  localStorage.removeItem('digaf_remembered_session');
+        //setCurrentUser(null);
+        //setInactivityNotice('Your session has automatically logged out due to inactivity.');
+        //setActiveTab('dashboard');
+     // }
+   // }, 4000);
 
     return () => {
       targetEvents.forEach((ev) => {
         window.removeEventListener(ev, handleResetActivity);
       });
-      clearInterval(activityTracker);
+      //clearInterval(activityTracker);
     };
   }, [currentUser, lastActivity]);
 

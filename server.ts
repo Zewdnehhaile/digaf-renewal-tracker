@@ -935,6 +935,69 @@ async function startServer() {
     }
   });
   // ============================================================
+  // ================ EARLY PAYMENT CLOSURE ====================
+  // ============================================================
+
+  app.get('/api/early-payment', async (req, res) => {
+    try {
+      const records = await db.collection('early_payment').find({}).sort({ createdAt: -1 }).toArray();
+      res.json(records);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/early-payment', async (req, res) => {
+    try {
+      const record = req.body;
+      if (!record.id) record.id = `ep-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      if (!record.createdAt) record.createdAt = new Date().toISOString();
+      if (!record.updatedAt) record.updatedAt = new Date().toISOString();
+      if (!record.status) record.status = 'Partial';
+      if (!record.receipts) record.receipts = [];
+
+      const result = await db.collection('early_payment').insertOne(record);
+      res.json({ _id: result.insertedId, ...record });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/early-payment/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('early_payment').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Record not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/early-payment/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('early_payment').deleteOne({ id: id });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Record not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // ============================================================
   // ================ REPORTS DATA ====================
   // ============================================================
 
