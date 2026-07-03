@@ -113,12 +113,12 @@ export const dbService = {
   // In db.ts, update the subscribeChats function:
   // In src/services/db.ts
   subscribeChats: (callback: (data: any[]) => void) => {
-    console.log('🔄 subscribeChats called');
+    
     const f = async () => {
       try {
-        console.log('📡 Fetching chats from API...');
+        
         const d = await apiRequest('/chats');
-        console.log('✅ Chats fetched:', d);
+
         callback(toArray(d));
       } catch (error) {
         console.error('❌ Error fetching chats:', error);
@@ -128,7 +128,7 @@ export const dbService = {
     f();
     const i = setInterval(f, 5000);
     return () => {
-      console.log('🛑 Unsubscribing from chats');
+      
       clearInterval(i);
     };
   },
