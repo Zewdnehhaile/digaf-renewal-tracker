@@ -213,6 +213,7 @@ export default function KanbanBoard({
     if (!applicantText.trim()) {
       alert('❌ Please enter applicant details.');
       setAddingCustomers(false);
+
       return;
     }
 
@@ -237,6 +238,7 @@ export default function KanbanBoard({
       if (nameTrim && allNames.has(nameTrim.toLowerCase())) {
         const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
         alert(`❌ "${nameTrim}" already exists with status "${existingStatus}".\n\nYou cannot add duplicate customers.`);
+        setAddingCustomers(false);
         return;
       }
       if (nameTrim) {
@@ -264,12 +266,10 @@ export default function KanbanBoard({
       lines.forEach(name => {
         const nameTrim = name.trim();
         if (nameTrim) {
-          if (todayNames.has(nameTrim.toLowerCase())) {
+          if (allNames.has(nameTrim.toLowerCase())) {  // <-- Changed from todayNames to allNames
             const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
             skippedDuplicates.push(`${nameTrim} (${existingStatus})`);
           } else {
-            // BLACKLIST CHECK for bulk mode
-            // Note: For bulk, we'll check after processing all names
             newCustomers.push({
               id: `cust-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
               name: nameTrim,
@@ -282,7 +282,7 @@ export default function KanbanBoard({
               workspace: currentWorkspace,
               createdAt: new Date().toISOString()
             });
-            todayNames.add(nameTrim.toLowerCase());
+            allNames.add(nameTrim.toLowerCase());  // <-- Changed from todayNames to allNames
           }
         }
       });
@@ -341,9 +341,10 @@ export default function KanbanBoard({
     } catch (error) {
       console.error('Error adding applicants:', error);
       alert('❌ Failed to add applicant. Please try again.');
+      setAddingCustomers(false);
     }
     finally {
-      setAddingCustomers(false); // <-- ADD THIS LINE
+      setAddingCustomers(false);
     }
   };
 
