@@ -1,5 +1,6 @@
 // src/components/KanbanBoard.tsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { Customer, CustomerStatus, STATUS_LIST, STATUS_COLORS, User, ActivityLog, AIConfig, OfficerAIPermission } from '../types';
 import { dbService, getTodayDateString } from '../services/db';
 import { soundService } from '../services/sound';
@@ -209,7 +210,9 @@ export default function KanbanBoard({
 
   // Add Customer - with Blacklist check and duplicate detection with status
   const handleAddApplicant = async () => {
-    setAddingCustomers(true);
+    flushSync(() => {
+      setAddingCustomers(true); // Force immediate UI update
+    });
     if (!applicantText.trim()) {
       alert('❌ Please enter applicant details.');
       setAddingCustomers(false);
@@ -318,7 +321,7 @@ export default function KanbanBoard({
     try {
       // OPTIMISTIC UPDATE - Show customers immediately
       setCustomers(prev => [...newCustomers, ...prev]);
-
+      setAddingCustomers(false);
       // Then save to database in background
       await Promise.all(
         newCustomers.map(cust => dbService.addCustomer(cust))
