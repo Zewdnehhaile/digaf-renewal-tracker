@@ -102,6 +102,7 @@ export default function KanbanBoard({
   const [editFormData, setEditFormData] = useState<any>({});
   const [filterType, setFilterType] = useState<'all' | 'today'>('all');
   const [blacklistedCustomers, setBlacklistedCustomers] = useState<Set<string>>(new Set());
+  const [addingCustomers, setAddingCustomers] = useState(false);
   const activeOfficer = useMemo(() => {
     if (currentUser?.fullName) return currentUser.fullName;
     const remembered = localStorage.getItem('digaf_remembered_session');
@@ -208,8 +209,10 @@ export default function KanbanBoard({
 
   // Add Customer - with Blacklist check and duplicate detection with status
   const handleAddApplicant = async () => {
+    setAddingCustomers(true);
     if (!applicantText.trim()) {
       alert('❌ Please enter applicant details.');
+      setAddingCustomers(false);
       return;
     }
 
@@ -218,28 +221,22 @@ export default function KanbanBoard({
     const skippedDuplicates: string[] = [];
 
     const allCustomers = propCustomers || customers;
-    const existingToday = allCustomers.filter(c => {
-      const addedToday = c.addedDate && c.addedDate.split('T')[0] === today;
-      const updatedToday = c.updatedDate && c.updatedDate.split('T')[0] === today;
-      return addedToday || updatedToday;
-    });
-
-    const todayNames = new Set(
-      existingToday.map(c => c.name.trim().toLowerCase())
+    const allNames = new Set(
+      allCustomers.map(c => c.name.trim().toLowerCase())
     );
 
     // Store status info for duplicate detection
     const existingCustomerMap = new Map();
-    existingToday.forEach(c => {
+    allCustomers.forEach(c => {
       existingCustomerMap.set(c.name.trim().toLowerCase(), c.status);
     });
 
     if (inputMode === 'single') {
       const [name, phone, notes, ...rest] = lines;
       const nameTrim = name ? name.trim() : '';
-      if (nameTrim && todayNames.has(nameTrim.toLowerCase())) {
+      if (nameTrim && allNames.has(nameTrim.toLowerCase())) {
         const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
-        alert(`❌ "${nameTrim}" already exists today with status "${existingStatus}".\n\nYou cannot add the same customer twice in one day.`);
+        alert(`❌ "${nameTrim}" already exists with status "${existingStatus}".\n\nYou cannot add duplicate customers.`);
         return;
       }
       if (nameTrim) {
@@ -319,12 +316,14 @@ export default function KanbanBoard({
     }
 
     try {
-      // Add each customer individually with their ID already set
+      // OPTIMISTIC UPDATE - Show customers immediately
+      setCustomers(prev => [...newCustomers, ...prev]);
+
+      // Then save to database in background
       await Promise.all(
         newCustomers.map(cust => dbService.addCustomer(cust))
       );
 
-      setCustomers(prev => [...newCustomers, ...prev]);
       setApplicantText('');
       setShowAddForm(false);
 
@@ -342,6 +341,9 @@ export default function KanbanBoard({
     } catch (error) {
       console.error('Error adding applicants:', error);
       alert('❌ Failed to add applicant. Please try again.');
+    }
+    finally {
+      setAddingCustomers(false); // <-- ADD THIS LINE
     }
   };
 
@@ -652,10 +654,24 @@ export default function KanbanBoard({
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={handleAddApplicant} className="px-6 py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer">
-                Add Customer
+              <button
+                onClick={handleAddApplicant}
+                disabled={addingCustomers}
+                className="px-6 py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {addingCustomers ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Customers'
+                )}
               </button>
-              <button onClick={() => { setShowAddForm(false); setApplicantText(''); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all cursor-pointer">
+              <button
+                onClick={() => { setShowAddForm(false); setApplicantText(''); }}
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all cursor-pointer"
+              >
                 Cancel
               </button>
             </div>

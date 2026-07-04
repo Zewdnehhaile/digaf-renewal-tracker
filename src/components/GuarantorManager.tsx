@@ -76,15 +76,20 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
     }
     return false;
   };
-
-  // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check for duplicate
-    const isDuplicate = await checkDuplicate(formData.phoneNumber, editingGuarantor?.id);
+    // Check for duplicate - check if same name AND phone already exists
+    const existingGuarantors = await dbService.getGuarantors();
+    const isDuplicate = existingGuarantors.some(g =>
+      g.guarantorName.toLowerCase() === formData.guarantorName.toLowerCase() &&
+      g.phoneNumber === formData.phoneNumber &&
+      g.status === 'Active' &&
+      g.id !== editingGuarantor?.id // Exclude current if editing
+    );
+
     if (isDuplicate) {
-      alert('⚠️ This guarantor is currently guaranteeing another customer.\n\nPlease wait until the current guarantee expires.');
+      alert('⚠️ This guarantor (name and phone) is already active and guaranteeing another customer.\n\nPlease wait until the current guarantee expires or change the status to Expired.');
       return;
     }
 
@@ -315,19 +320,17 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
           {filteredGuarantors.map((guarantor) => (
             <div
               key={guarantor.id}
-              className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow ${
-                guarantor.status === 'Active' ? 'border-emerald-200' : 'border-slate-200'
-              }`}
+              className={`bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow ${guarantor.status === 'Active' ? 'border-emerald-200' : 'border-slate-200'
+                }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <h4 className="font-bold text-slate-800">{guarantor.guarantorName}</h4>
-                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full border ${
-                      guarantor.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-50 text-slate-600 border-slate-200'
-                    }`}>
+                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full border ${guarantor.status === 'Active'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                      }`}>
                       {guarantor.status}
                     </span>
                   </div>
@@ -346,12 +349,22 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                   >
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => handleDelete(guarantor.id, guarantor.guarantorName)}
-                    className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {currentUser?.role === 'admin' || currentUser?.role === 'super_admin' ? (
+                    <button
+                      onClick={() => handleDelete(guarantor.id, guarantor.guarantorName)}
+                      className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="p-2 bg-slate-50 text-slate-300 rounded-lg cursor-not-allowed"
+                      title="Only admins can delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

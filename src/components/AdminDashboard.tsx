@@ -61,7 +61,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [firstRoundApplicants, setFirstRoundApplicants] = useState<any[]>([]);
   // Employee Performance Dashboard States
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'last7' | 'thisMonth' | 'custom'>('thisMonth');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -248,9 +248,22 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       setBackups(updatedBackups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
     });
 
+   
+
     const unsubscribeAttendance = dbService.subscribeAttendanceRecords((records) => {
       setAttendanceRecords(records);
     });
+
+    // Fetch First Round applicants
+    const fetchFirstRoundApplicants = async () => {
+      try {
+        const data = await dbService.getFirstRoundApplicants();
+        setFirstRoundApplicants(data);
+      } catch (error) {
+        console.error('Error fetching first round applicants:', error);
+      }
+    };
+    fetchFirstRoundApplicants();
 
     return () => {
       unsubscribeUsers();
@@ -259,6 +272,7 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
       unsubscribeBackups();
       unsubscribeAttendance();
     };
+
   }, []);
 
   const handleToggleStatus = async (user: User) => {
@@ -1043,6 +1057,11 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
           };
 
           const getEmployeeStats = (u: User) => {
+            // First Round APPLICANTS (from first_round_applicants collection)
+            const frApplicantsPosted = firstRoundApplicants.filter(a => a.createdByName === u.fullName && isWithinDateFilter(a.createdAt)).length;
+            const frApplicantsCompleted = firstRoundApplicants.filter(a => a.createdByName === u.fullName && a.status === 'completed' && isWithinDateFilter(a.updatedAt || a.createdAt)).length;
+
+            // First Round CUSTOMERS (from customers collection with workspace: 'first_round')
             const frPosted = customers.filter(c => c.workspace === 'first_round' && matchesEmployee(c, u) && isWithinDateFilter(c.addedDate)).length;
             const frCompleted = customers.filter(c => c.workspace === 'first_round' && matchesEmployee(c, u) && c.status === 'Completed' && isWithinDateFilter(c.updatedDate || c.addedDate)).length;
 
@@ -1074,9 +1093,10 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
               }
             });
 
-            const productivityScore = frCompleted * 10 + srCompleted * 10 + srPaid * 15 + srRenewal * 5;
-
+            const productivityScore = frApplicantsPosted * 5 + frApplicantsCompleted * 10 + frPosted * 5 + frCompleted * 10 + srCompleted * 10 + srPaid * 15 + srRenewal * 5;
             return {
+              frApplicantsPosted,
+              frApplicantsCompleted,
               frPosted,
               frCompleted,
               srRenewal,
@@ -1092,24 +1112,22 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
             };
           };
 
-          const teamFirstRoundSummary = (() => {
-            const frCustomers = customers.filter(c => c.workspace === 'first_round' && isWithinDateFilter(c.addedDate));
-            const totalPosted = frCustomers.length;
-            const totalCompleted = frCustomers.filter(c => c.status === 'Completed').length;
-            return { totalPosted, totalCompleted };
-          })();
+          // Combined summary - shows BOTH first and second round
+          // Combined summary - shows BOTH first round applicants AND second round customers
+          const totalFirstRound = firstRoundApplicants.length;
+          const totalSecondRound = customers.length;
+          const totalCustomers = totalFirstRound + totalSecondRound;
 
-          const teamSecondRoundSummary = (() => {
-            const srCustomers = customers.filter(c => c.workspace === 'second_round' && isWithinDateFilter(c.updatedDate || c.addedDate));
-            const totalRenewal = srCustomers.filter(c => c.status === 'Renewal Processing').length;
-            const totalCompleted = srCustomers.filter(c => c.status === 'Completed').length;
-            const totalPaid = srCustomers.filter(c => c.status === 'Paid').length;
-            const totalRejected = srCustomers.filter(c => c.status === 'Rejected').length;
-            const totalWaiting = srCustomers.filter(c => c.status === 'Waiting').length;
-            const totalNoResponse = srCustomers.filter(c => c.status === 'No Response').length;
-            return { totalRenewal, totalCompleted, totalPaid, totalRejected, totalWaiting, totalNoResponse };
-          })();
+          const completedFirstRound = firstRoundApplicants.filter(c => c.status === 'completed').length;
+          const completedSecondRound = customers.filter(c => c.status === 'Completed').length;
+          const totalCompleted = completedFirstRound + completedSecondRound;
 
+          const pendingFirstRound = firstRoundApplicants.filter(c => c.status === 'pending').length;
+          const processingCount = customers.filter(c => c.status === 'Renewal Processing').length;
+          const paidCount = customers.filter(c => c.status === 'Paid').length;
+          const waitingCount = customers.filter(c => c.status === 'Waiting').length;
+          const rejectedCount = customers.filter(c => c.status === 'Rejected').length;
+          const noResponseCount = customers.filter(c => c.status === 'No Response').length;
           const validEmployeesList = users.filter(u => {
             const roleLower = (u.businessRole || u.customRole || u.role || '').toLowerCase();
             const ws = u.workspace;
@@ -1264,132 +1282,42 @@ export default function AdminDashboard({ currentUser, logs, customers = [] }: Ad
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-violet-500/5 to-violet-600/5 border border-violet-100 rounded-xl p-4.5 space-y-3">
-                  <div className="flex items-center justify-between border-b border-violet-100/50 pb-2">
-                    <span className="text-[10px] font-black uppercase text-violet-700 tracking-wider">FIRST ROUND GLOBAL SUMMARY</span>
-                    <span className="text-[8.5px] bg-violet-100 text-violet-800 font-bold px-1.5 py-0.2 rounded uppercase">Static DB Synced</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-3 rounded-lg border border-violet-100/50">
-                      <span className="text-[8.5px] font-bold text-slate-400 block uppercase">TOTAL POSTED</span>
-                      <span className="text-lg font-black text-slate-800 tracking-tight">{teamFirstRoundSummary.totalPosted}</span>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-violet-100/50">
-                      <span className="text-[8.5px] font-bold text-violet-600 block uppercase">TOTAL COMPLETED</span>
-                      <span className="text-lg font-black text-[#8B5CF6] tracking-tight">{teamFirstRoundSummary.totalCompleted}</span>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-violet-500/5 to-violet-600/5 border border-violet-100 rounded-xl p-4.5">
+                  <span className="text-[8.5px] font-bold text-slate-400 block uppercase">TOTAL CUSTOMERS</span>
+                  <span className="text-2xl font-black text-slate-800">{totalCustomers}</span>
+                  <div className="flex gap-2 mt-1 text-[9px]">
+                    <span className="text-violet-600">1st: {totalFirstRound}</span>
+                    <span className="text-indigo-600">2nd: {totalSecondRound}</span>
                   </div>
                 </div>
-
-                <div className="bg-gradient-to-br from-indigo-500/5 to-indigo-600/5 border border-indigo-100 rounded-xl p-4.5 space-y-3">
-                  <div className="flex items-center justify-between border-b border-indigo-100/50 pb-2">
-                    <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">SECOND ROUND GLOBAL SUMMARY</span>
-                    <span className="text-[8.5px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.2 rounded uppercase">Workload Standard</span>
+                <div className="bg-gradient-to-br from-emerald-500/5 to-emerald-600/5 border border-emerald-100 rounded-xl p-4.5">
+                  <span className="text-[8.5px] font-bold text-slate-400 block uppercase">COMPLETED</span>
+                  <span className="text-2xl font-black text-emerald-600">{totalCompleted}</span>
+                  <div className="flex gap-2 mt-1 text-[9px]">
+                    <span className="text-violet-600">1st: {completedFirstRound}</span>
+                    <span className="text-indigo-600">2nd: {completedSecondRound}</span>
                   </div>
-                  <div className="grid grid-cols-6 gap-1">
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">PROCESSING</span>
-                      <span className="text-[11px] font-black text-slate-755">{teamSecondRoundSummary.totalRenewal}</span>
-                    </div>
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">COMPLETED</span>
-                      <span className="text-[11px] font-black text-emerald-600">{teamSecondRoundSummary.totalCompleted}</span>
-                    </div>
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">PAID</span>
-                      <span className="text-[11px] font-black text-indigo-600">{teamSecondRoundSummary.totalPaid}</span>
-                    </div>
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">REJECTED</span>
-                      <span className="text-[11px] font-black text-rose-600">{teamSecondRoundSummary.totalRejected}</span>
-                    </div>
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">WAITING</span>
-                      <span className="text-[11px] font-black text-amber-600">{teamSecondRoundSummary.totalWaiting}</span>
-                    </div>
-                    <div className="bg-white p-1 py-1.5 rounded-lg border border-indigo-50 text-center">
-                      <span className="text-[7px] font-bold text-slate-400 block truncate font-sans">NO RESP.</span>
-                      <span className="text-[11px] font-black text-amber-900">{teamSecondRoundSummary.totalNoResponse}</span>
-                    </div>
+                </div>
+                <div className="bg-gradient-to-br from-amber-500/5 to-amber-600/5 border border-amber-100 rounded-xl p-4.5">
+                  <span className="text-[8.5px] font-bold text-slate-400 block uppercase">IN PROGRESS</span>
+                  <span className="text-2xl font-black text-amber-600">{processingCount + pendingFirstRound}</span>
+                  <div className="flex gap-2 mt-1 text-[9px]">
+                    <span className="text-violet-600">1st Pending: {pendingFirstRound}</span>
+                    <span className="text-indigo-600">2nd Processing: {processingCount}</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-rose-500/5 to-rose-600/5 border border-rose-100 rounded-xl p-4.5">
+                  <span className="text-[8.5px] font-bold text-slate-400 block uppercase">PAID / REJECTED</span>
+                  <span className="text-2xl font-black text-rose-600">{paidCount + rejectedCount}</span>
+                  <div className="flex gap-2 mt-1 text-[9px]">
+                    <span className="text-indigo-600">Paid: {paidCount}</span>
+                    <span className="text-rose-600">Rej: {rejectedCount}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-150 rounded-xl p-4.5 shadow-3xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <Award className="w-4.5 h-4.5 text-[#8B5CF6]" />
-                    <div>
-                      <h4 className="text-[11.5px] font-black text-slate-800 uppercase tracking-wide">Staff Operations Matrix</h4>
-                      <p className="text-[9.5px] text-slate-400 font-medium">Workload statistics computed automatically from logs</p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-1 self-end sm:self-auto">
-                    {[
-                      { id: 'completed', label: 'Completed Tasks' },
-                      { id: 'paid', label: 'Paid Enrollments' },
-                      { id: 'productivity', label: 'Overall Productivity' }
-                    ].map((metric) => (
-                      <button
-                        key={metric.id}
-                        onClick={() => setRankingMetric(metric.id as any)}
-                        className={`px-2.5 py-1 text-[9.5px] font-black uppercase tracking-wider rounded-md border transition-all cursor-pointer ${rankingMetric === metric.id
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : 'bg-transparent text-slate-450 border-slate-150/80 hover:bg-slate-50'
-                          }`}
-                      >
-                        {metric.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 border border-slate-150 rounded-xl overflow-hidden bg-white">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/60 border-b border-slate-150 text-[9px] font-black uppercase text-slate-450 tracking-wider">
-                        <th className="py-2.5 px-3">Employee Name</th>
-                        <th className="py-2.5 px-3 text-center">Completed</th>
-                        <th className="py-2.5 px-3 text-center">Paid</th>
-                        <th className="py-2.5 px-3 text-center">Success Rate</th>
-                        <th className="py-2.5 px-3 text-right">Performance Score</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-[11.5px] font-bold text-slate-700">
-                      {rankedEmployees.map((item) => {
-                        const totalSecondRound = item.stats.srRenewal + item.stats.srCompleted + item.stats.srPaid + item.stats.srWaiting + item.stats.srRejected + item.stats.srNoResponse;
-                        const successRate = totalSecondRound > 0 ? Math.round((item.stats.srPaid / totalSecondRound) * 100) : 0;
-                        return (
-                          <tr key={item.user.phoneNumber} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-2 px-3">
-                              <div className="flex flex-col">
-                                <span className="font-extrabold text-slate-800">{item.user.fullName}</span>
-                                <span className="text-[8px] text-slate-400 font-medium uppercase font-mono tracking-wider">{item.user.customRole || item.user.role}</span>
-                              </div>
-                            </td>
-                            <td className="py-2 px-3 text-center font-mono text-emerald-600">
-                              {item.completed}
-                            </td>
-                            <td className="py-2 px-3 text-center font-mono text-indigo-600">
-                              {item.paid}
-                            </td>
-                            <td className="py-2 px-3 text-center font-mono">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${successRate >= 70 ? 'bg-emerald-50 text-emerald-700' : successRate >= 40 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-500'}`}>
-                                {successRate}%
-                              </span>
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono text-[#8B5CF6] text-xs">
-                              {item.productivity} pts
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between pl-1">
