@@ -146,15 +146,10 @@ export default function KanbanBoard({
       setLoading(false);
     }
   };
+
   useEffect(() => {
-    // Don't refetch from database - use the optimistic updates
-    // Just filter the existing customers based on focusedStatus
-    const filtered = propCustomers.filter(c =>
-      c.workspace === currentWorkspace &&
-      (!focusedStatus || c.status === focusedStatus)
-    );
-    setCustomers(filtered);
-  }, [focusedStatus, currentWorkspace, propCustomers]);
+    fetchCustomers();
+  }, [focusedStatus, currentWorkspace]);
 
 
   useEffect(() => {
@@ -398,7 +393,7 @@ export default function KanbanBoard({
       alert('✅ Customer deleted successfully!');
 
       // Refresh to update counts
-
+  
       if (onRefresh) {
         await onRefresh();
       }
@@ -462,7 +457,7 @@ export default function KanbanBoard({
       alert(`✅ Moved to ${targetStatus}`);
 
       // Refresh to update counts and sidebar
-
+     
       if (onRefresh) {
         await onRefresh();
       }
@@ -514,7 +509,7 @@ export default function KanbanBoard({
       alert('✅ Marked as Overdue!');
 
       // Refresh to update counts
-
+      
       if (onRefresh) {
         await onRefresh();
       }
@@ -567,7 +562,7 @@ export default function KanbanBoard({
       alert('✅ Customer updated successfully!');
 
       // Refresh to update counts
-
+     
       if (onRefresh) {
         await onRefresh();
       }
