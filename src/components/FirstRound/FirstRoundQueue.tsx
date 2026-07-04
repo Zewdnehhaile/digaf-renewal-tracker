@@ -27,7 +27,9 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
     const [applicantText, setApplicantText] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-
+    const [filterType, setFilterType] = useState<'all' | 'today'>('all');
+    const today = new Date().toISOString().split('T')[0];
+    const todayApplicants = applicants.filter(a => a.createdAt?.split('T')[0] === today);
     // Edit state
     const [editingApplicant, setEditingApplicant] = useState<FirstRoundApplicant | null>(null);
     const [editFormData, setEditFormData] = useState<any>({});
@@ -176,11 +178,19 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     };
 
     // Filter applicants
-    const filteredApplicants = applicants.filter(a =>
-        a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.referenceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.bank.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Filter applicants
+    const filteredApplicants = applicants
+        .filter(a => {
+            if (filterType === 'today') {
+                return a.createdAt?.split('T')[0] === today;
+            }
+            return true;
+        })
+        .filter(a =>
+            a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            a.referenceId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            a.bank.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
     const pendingCount = applicants.filter(a => a.status === 'pending').length;
     const completedCount = applicants.filter(a => a.status === 'completed').length;
@@ -254,6 +264,27 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                     </div>
                 </div>
             )}
+            {/* Filter Tabs */}
+            <div className="flex gap-2 mb-3">
+                <button
+                    onClick={() => setFilterType('all')}
+                    className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'all'
+                        ? 'bg-[#8B5CF6] text-white border-[#8B5CF6]'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                >
+                    All ({applicants.length})
+                </button>
+                <button
+                    onClick={() => setFilterType('today')}
+                    className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'today'
+                        ? 'bg-emerald-500 text-white border-emerald-500'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                >
+                    Today ({todayApplicants.length})
+                </button>
+            </div>
 
             {/* Search */}
             <div className="relative">
@@ -266,6 +297,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] text-sm"
                 />
             </div>
+          
 
             {/* Applicants List */}
             {loading ? (

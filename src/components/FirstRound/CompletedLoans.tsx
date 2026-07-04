@@ -12,29 +12,37 @@ export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
   const [completed, setCompleted] = useState<FirstRoundApplicant[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-
+  const [filterType, setFilterType] = useState<'all' | 'today'>('all');
+  const today = new Date().toISOString().split('T')[0];
+  const todayCompleted = completed.filter(a => a.completedAt?.split('T')[0] === today);
   useEffect(() => {
-   const fetchCompleted = async () => {
-  try {
-    const data = await dbService.getFirstRoundApplicants();
-    const completedOnly = data.filter((a: any) => a.status === 'completed');
-    setCompleted(completedOnly);
-  } catch (error) {
-    console.error('Error fetching completed:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+    const fetchCompleted = async () => {
+      try {
+        const data = await dbService.getFirstRoundApplicants();
+        const completedOnly = data.filter((a: any) => a.status === 'completed');
+        setCompleted(completedOnly);
+      } catch (error) {
+        console.error('Error fetching completed:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchCompleted();
   }, []);
 
-  const filtered = completed.filter(a =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.referenceId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = completed
+    .filter(a => {
+      if (filterType === 'today') {
+        return a.completedAt?.split('T')[0] === today;
+      }
+      return true;
+    })
+    .filter(a =>
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.referenceId.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayCompleted = completed.filter(a => a.completedAt?.split('T')[0] === today);
+
   const olderCompleted = completed.filter(a => a.completedAt?.split('T')[0] !== today);
 
   return (
@@ -75,6 +83,29 @@ export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
         </div>
       )}
 
+      {/* Filter Tabs */}
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={() => setFilterType('all')}
+          className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'all'
+            ? 'bg-[#8B5CF6] text-white border-[#8B5CF6]'
+            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+        >
+          All ({completed.length})
+        </button>
+        <button
+          onClick={() => setFilterType('today')}
+          className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'today'
+            ? 'bg-emerald-500 text-white border-emerald-500'
+            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+        >
+          Today ({todayCompleted.length})
+        </button>
+      </div>
+
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
@@ -130,24 +161,24 @@ export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
                   >
                     <Copy className="w-4 h-4" />
                   </button>
-                 
-<button
-  onClick={async () => {
-    if (!confirm(`Delete ${applicant.name} from completed loans?`)) return;
-    try {
-      await dbService.deleteFirstRoundApplicant(applicant.id);
-      setCompleted(prev => prev.filter(a => a.id !== applicant.id));
-      alert('Record deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting:', error);
-      alert('Failed to delete record.');
-    }
-  }}
-  className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all cursor-pointer"
-  title="Delete"
->
-  <Trash2 className="w-4 h-4" />
-</button>
+
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete ${applicant.name} from completed loans?`)) return;
+                      try {
+                        await dbService.deleteFirstRoundApplicant(applicant.id);
+                        setCompleted(prev => prev.filter(a => a.id !== applicant.id));
+                        alert('Record deleted successfully!');
+                      } catch (error) {
+                        console.error('Error deleting:', error);
+                        alert('Failed to delete record.');
+                      }
+                    }}
+                    className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all cursor-pointer"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
