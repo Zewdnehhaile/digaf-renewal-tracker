@@ -147,9 +147,16 @@ export default function KanbanBoard({
     }
   };
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [focusedStatus, currentWorkspace]);
+ useEffect(() => {
+  // Don't refetch from database - use the optimistic updates
+  // Just filter the existing customers based on focusedStatus
+  const filtered = propCustomers.filter(c =>
+    c.workspace === currentWorkspace &&
+    (!focusedStatus || c.status === focusedStatus)
+  );
+  setCustomers(filtered);
+  setLoading(false); // <-- ADD THIS LINE
+}, [focusedStatus, currentWorkspace, propCustomers]);
 
 
   useEffect(() => {
