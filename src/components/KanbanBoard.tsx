@@ -393,7 +393,7 @@ export default function KanbanBoard({
       alert('✅ Customer deleted successfully!');
 
       // Refresh to update counts
-      await fetchCustomers();
+  
       if (onRefresh) {
         await onRefresh();
       }
@@ -457,7 +457,7 @@ export default function KanbanBoard({
       alert(`✅ Moved to ${targetStatus}`);
 
       // Refresh to update counts and sidebar
-      await fetchCustomers();
+     
       if (onRefresh) {
         await onRefresh();
       }
@@ -509,7 +509,7 @@ export default function KanbanBoard({
       alert('✅ Marked as Overdue!');
 
       // Refresh to update counts
-      await fetchCustomers();
+      
       if (onRefresh) {
         await onRefresh();
       }
@@ -562,7 +562,7 @@ export default function KanbanBoard({
       alert('✅ Customer updated successfully!');
 
       // Refresh to update counts
-      await fetchCustomers();
+     
       if (onRefresh) {
         await onRefresh();
       }
