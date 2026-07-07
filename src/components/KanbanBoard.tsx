@@ -104,6 +104,7 @@ export default function KanbanBoard({
   const [filterType, setFilterType] = useState<'all' | 'today'>('all');
   const [blacklistedCustomers, setBlacklistedCustomers] = useState<Set<string>>(new Set());
   const [addingCustomers, setAddingCustomers] = useState(false);
+  const [duplicateModal, setDuplicateModal] = useState<{ show: boolean; customer: Customer | null }>({ show: false, customer: null });
   const activeOfficer = useMemo(() => {
     if (currentUser?.fullName) return currentUser.fullName;
     const remembered = localStorage.getItem('digaf_remembered_session');
@@ -147,16 +148,16 @@ export default function KanbanBoard({
     }
   };
 
- useEffect(() => {
-  // Don't refetch from database - use the optimistic updates
-  // Just filter the existing customers based on focusedStatus
-  const filtered = propCustomers.filter(c =>
-    c.workspace === currentWorkspace &&
-    (!focusedStatus || c.status === focusedStatus)
-  );
-  setCustomers(filtered);
-  setLoading(false); // <-- ADD THIS LINE
-}, [focusedStatus, currentWorkspace, propCustomers]);
+  useEffect(() => {
+    // Don't refetch from database - use the optimistic updates
+    // Just filter the existing customers based on focusedStatus
+    const filtered = propCustomers.filter(c =>
+      c.workspace === currentWorkspace &&
+      (!focusedStatus || c.status === focusedStatus)
+    );
+    setCustomers(filtered);
+    setLoading(false); // <-- ADD THIS LINE
+  }, [focusedStatus, currentWorkspace, propCustomers]);
 
 
   useEffect(() => {
@@ -246,11 +247,16 @@ export default function KanbanBoard({
       const [name, phone, notes, ...rest] = lines;
       const nameTrim = name ? name.trim() : '';
       if (nameTrim && allNames.has(nameTrim.toLowerCase())) {
-        const existingStatus = existingCustomerMap.get(nameTrim.toLowerCase());
-        alert(`❌ "${nameTrim}" already exists with status "${existingStatus}".\n\nYou cannot add duplicate customers.`);
-        setAddingCustomers(false);
-        return;
+        // Find the existing customer
+        const existingCustomer = allCustomers.find(c => c.name.trim().toLowerCase() === nameTrim.toLowerCase());
+        if (existingCustomer) {
+          // Open duplicate modal
+          setDuplicateModal({ show: true, customer: existingCustomer });
+          setAddingCustomers(false);
+          return;
+        }
       }
+
       if (nameTrim) {
         // BLACKLIST CHECK
         const blacklistCheck = await dbService.checkBlacklist(nameTrim);
@@ -400,7 +406,7 @@ export default function KanbanBoard({
       alert('✅ Customer deleted successfully!');
 
       // Refresh to update counts
-  
+
       if (onRefresh) {
         await onRefresh();
       }
@@ -464,7 +470,7 @@ export default function KanbanBoard({
       alert(`✅ Moved to ${targetStatus}`);
 
       // Refresh to update counts and sidebar
-     
+
       if (onRefresh) {
         await onRefresh();
       }
@@ -516,7 +522,7 @@ export default function KanbanBoard({
       alert('✅ Marked as Overdue!');
 
       // Refresh to update counts
-      
+
       if (onRefresh) {
         await onRefresh();
       }
@@ -569,7 +575,7 @@ export default function KanbanBoard({
       alert('✅ Customer updated successfully!');
 
       // Refresh to update counts
-     
+
       if (onRefresh) {
         await onRefresh();
       }
@@ -892,8 +898,105 @@ export default function KanbanBoard({
               </button>
             </div>
           </div>
+
         </div>
       )}
+      {/* Duplicate Customer Modal */}
+      {duplicateModal.show && duplicateModal.customer && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                Duplicate Customer Found
+              </h3>
+              <button
+                onClick={() => setDuplicateModal({ show: false, customer: null })}
+                className="p-1 hover:bg-slate-100 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Customer Info */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-slate-800">{duplicateModal.customer.name}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  <span className="font-medium">Status:</span> {duplicateModal.customer.status}
+                </p>
+                <p className="text-xs text-slate-500">
+                  <span className="font-medium">Added by:</span> {duplicateModal.customer.addedBy}
+                </p>
+                <p className="text-xs text-slate-500">
+                  <span className="font-medium">Last updated:</span> {formatDateWithTime(duplicateModal.customer.updatedDate)}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={async () => {
+                    // Close modal immediately
+                    setDuplicateModal({ show: false, customer: null });
+
+                    // Update the customer in the list instantly (optimistic)
+                    const updatedCustomer = {
+                      ...duplicateModal.customer,
+                      status: 'Renewal Processing',
+                      updatedDate: new Date().toISOString(),
+                      updatedBy: activeOfficer
+                    };
+
+                    setCustomers(prev => {
+                      // Remove the customer from wherever they are and add to current view
+                      const filtered = prev.filter(c => c.id !== duplicateModal.customer.id);
+                      return [updatedCustomer, ...filtered];
+                    });
+
+                    // Save to database in background
+                    try {
+                      await dbService.updateCustomer(
+                        duplicateModal.customer.id || duplicateModal.customer._id,
+                        {
+                          status: 'Renewal Processing',
+                          updatedBy: activeOfficer,
+                          updatedDate: new Date().toISOString()
+                        },
+                        activeOfficer
+                      );
+                      if (onRefresh) await onRefresh();
+                      alert(`✅ ${updatedCustomer.name} reactivated successfully!`);
+                    } catch (error) {
+                      console.error('Error reactivating:', error);
+                      // Rollback on error
+                      setCustomers(prev => {
+                        const filtered = prev.filter(c => c.id !== duplicateModal.customer.id);
+                        return [duplicateModal.customer, ...filtered];
+                      });
+                      alert('❌ Failed to reactivate customer.');
+                    }
+                  }}
+                  className="w-full py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black rounded-xl transition-all cursor-pointer"
+                >
+                  🔄 Reactivate Customer
+                </button>
+                <button
+                  onClick={() => setDuplicateModal({ show: false, customer: null })}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all cursor-pointer"
+                >
+                  ❌ Cancel
+                </button>
+              </div>
+
+              <p className="text-[10px] text-slate-400 text-center">
+                This customer already exists. You can reactivate them or cancel.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

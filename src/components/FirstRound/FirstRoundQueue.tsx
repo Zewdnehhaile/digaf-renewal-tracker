@@ -106,35 +106,31 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                 }
             });
         }
+        try {
+            // OPTIMISTIC UPDATE - Show immediately
+            setApplicants(prev => [...newApplicants, ...prev]);
 
-      try {
-  // OPTIMISTIC UPDATE - Show immediately
-  setApplicants(prev => [...newApplicants, ...prev]);
+            // Save to database in background
+            await dbService.addFirstRoundApplicants(newApplicants);
 
-  // Save to database in background
-  await dbService.addFirstRoundApplicants(newApplicants);
-
-  setApplicantText('');
-  setShowAddForm(false);
-  setAddingApplicants(false); // <-- Move here after save
-  alert(`✅ ${newApplicants.length} applicant(s) added successfully!`);
-} catch (error) {
-  console.error('Error adding applicants:', error);
-  // Rollback on error
-  setApplicants(prev => prev.filter(a => !newApplicants.some(n => n.id === a.id)));
-  alert('❌ Failed to add applicant. Please try again.');
-  setAddingApplicants(false);
-}
+            setApplicantText('');
+            setShowAddForm(false);
+            alert(`✅ ${newApplicants.length} applicant(s) added successfully!`);
+            setAddingApplicants(false); // <-- Move here after alert
+        } catch (error) {
+            console.error('Error adding applicants:', error);
+            // Rollback on error
+            setApplicants(prev => prev.filter(a => !newApplicants.some(n => n.id === a.id)));
+            alert('❌ Failed to add applicant. Please try again.');
+            setAddingApplicants(false);
+        }
     };
     // Complete applicant
     const handleComplete = async (applicant: FirstRoundApplicant) => {
-        try {
-            const currentApplicant = applicants.find(a => a.id === applicant.id);
-            if (!currentApplicant) {
-                alert('This applicant no longer exists. Please refresh the page.');
-                return;
-            }
+        // 🚀 OPTIMISTIC UPDATE - Remove instantly
+        setApplicants(prev => prev.filter(a => a.id !== applicant.id));
 
+        try {
             const updated = {
                 ...applicant,
                 status: 'completed' as const,
@@ -145,24 +141,31 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
             delete (updated as any)._id;
 
             await dbService.updateFirstRoundApplicant(applicant.id, updated);
-            setApplicants(prev => prev.filter(a => a.id !== applicant.id));
             alert('✅ Applicant moved to Completed Loans successfully!');
 
         } catch (error) {
             console.error('Error completing applicant:', error);
+            // Rollback if error
+            setApplicants(prev => [...prev, applicant]);
             alert('❌ Failed to complete applicant. Please try again.');
         }
     };
-
-    // Delete applicant
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this applicant?')) return;
+
+        // 🚀 OPTIMISTIC UPDATE - Remove instantly
+        const applicantToDelete = applicants.find(a => a.id === id);
+        setApplicants(prev => prev.filter(a => a.id !== id));
+
         try {
             await dbService.deleteFirstRoundApplicant(id);
-            setApplicants(applicants.filter(a => a.id !== id));
             alert('✅ Applicant deleted successfully!');
         } catch (error) {
             console.error('Error deleting applicant:', error);
+            // Rollback if error
+            if (applicantToDelete) {
+                setApplicants(prev => [...prev, applicantToDelete]);
+            }
             alert('❌ Failed to delete applicant.');
         }
     };
