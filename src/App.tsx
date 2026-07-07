@@ -108,10 +108,9 @@ export default function App() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
   const [officerPermissions, setOfficerPermissions] = useState<OfficerAIPermission[]>([]);
-
   const [firstRoundPendingCount, setFirstRoundPendingCount] = useState(0);
   const [firstRoundCompletedCount, setFirstRoundCompletedCount] = useState(0);
-
+  const [firstRoundCompletedToday, setFirstRoundCompletedToday] = useState(0);
   const isZewdneh = currentUser?.role === 'super_admin';
   const isAdminStaff = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
@@ -207,16 +206,16 @@ export default function App() {
     });
 
     //const activityTracker = setInterval(() => {
-      //const elapsedMs = Date.now() - lastActivity;
-      //const timeoutMs = 10 * 60 * 1000;
+    //const elapsedMs = Date.now() - lastActivity;
+    //const timeoutMs = 10 * 60 * 1000;
 
-      //if (elapsedMs >= timeoutMs) {
-      //  localStorage.removeItem('digaf_remembered_session');
-        //setCurrentUser(null);
-        //setInactivityNotice('Your session has automatically logged out due to inactivity.');
-        //setActiveTab('dashboard');
-     // }
-   // }, 4000);
+    //if (elapsedMs >= timeoutMs) {
+    //  localStorage.removeItem('digaf_remembered_session');
+    //setCurrentUser(null);
+    //setInactivityNotice('Your session has automatically logged out due to inactivity.');
+    //setActiveTab('dashboard');
+    // }
+    // }, 4000);
 
     return () => {
       targetEvents.forEach((ev) => {
@@ -279,14 +278,28 @@ export default function App() {
   }, [currentUser]);
 
   // Fetch First Round counts
+  // Fetch First Round counts
+  // Fetch First Round counts
   useEffect(() => {
     const fetchFirstRoundCounts = async () => {
       try {
         const data = await dbService.getFirstRoundApplicants();
+        const today = new Date().toISOString().split('T')[0];
+
         const pending = data.filter((a: any) => a.status === 'pending').length;
-        const completed = data.filter((a: any) => a.status === 'completed').length;
+
+        // Total completed (all time)
+        const totalCompleted = data.filter((a: any) => a.status === 'completed').length;
+
+        // Today's completed
+        const todayCompleted = data.filter((a: any) =>
+          a.status === 'completed' &&
+          a.completedAt?.split('T')[0] === today
+        ).length;
+
         setFirstRoundPendingCount(pending);
-        setFirstRoundCompletedCount(completed);
+        setFirstRoundCompletedCount(totalCompleted); // All time
+        setFirstRoundCompletedToday(todayCompleted); // Today only
       } catch (error) {
         console.error('Error fetching counts:', error);
       }
@@ -817,7 +830,8 @@ export default function App() {
                     <nav className="space-y-1">
                       {[
                         { id: 'first_round_queue', label: 'First Round Queue', icon: RefreshCw, badge: String(firstRoundPendingCount), badgeColor: 'bg-violet-100 text-[#8B5CF6] border border-violet-200 shadow-3xs' },
-                        { id: 'first_round_completed', label: 'Completed Loans', icon: CheckCircle2, badge: String(firstRoundCompletedCount), badgeColor: 'bg-emerald-100 text-[#10B981] border border-emerald-200 shadow-3xs' },
+                        { id: 'first_round_completed', label: 'Total Completed', icon: CheckCircle2, badge: String(firstRoundCompletedCount), badgeColor: 'bg-emerald-100 text-[#10B981] border border-emerald-200 shadow-3xs' },
+                        { id: 'first_round_completed_today', label: "Today's Completed", icon: CalendarClock, badge: String(firstRoundCompletedToday), badgeColor: 'bg-amber-100 text-amber-800 border border-amber-200 shadow-3xs' },
                         { id: 'first_round_reports', label: 'Daily Reports', icon: FileSpreadsheet, badge: null, badgeColor: '' },
                         { id: 'first_round_settings', label: 'Portal Settings', icon: Monitor, badge: null, badgeColor: '' }
                       ].map(item => {
@@ -993,13 +1007,12 @@ export default function App() {
                   key="chat"
                   onClick={() => handleNavigate('chat')}
                   className={`w-full flex items-center justify-between p-2 rounded-xl text-[12.5px] font-semibold tracking-tight transition-all cursor-pointer border relative pl-8 ${activeTab === 'chat'
-                      ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
-                      : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
+                    ? 'bg-violet-50 text-[#8B5CF6] border-violet-100/50 shadow-3xs'
+                    : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-950'
                     }`}
                 >
-                  {activeTab === 'chat' && (
-                    <span className="absolute left-2.5 w-1.25 h-4.5 bg-[#8B5CF6] rounded-full" />
-                  )}
+
+
                   <div className="flex items-center gap-2 bg-transparent">
                     <MessageSquare className={`w-4 h-4 shrink-0 transition-transform ${activeTab === 'chat' ? 'text-[#8B5CF6] scale-102 stroke-[2.2px]' : 'text-slate-400'
                       }`} />
@@ -1070,7 +1083,11 @@ export default function App() {
           )}
 
           {currentRound === 'first' && activeTab === 'first_round_completed' && (
-            <CompletedLoans currentUser={currentUser!} />
+            <CompletedLoans currentUser={currentUser!} view="all" />
+          )}
+
+          {currentRound === 'first' && activeTab === 'first_round_completed_today' && (
+            <CompletedLoans currentUser={currentUser!} view="today" />
           )}
 
           {currentRound === 'first' && activeTab === 'first_round_reports' && (
@@ -1144,17 +1161,25 @@ export default function App() {
 
 
 
-          {activeTab === 'chat' && (
-            <ChatRoom
-              currentUser={currentUser!}
-            />
-          )}
-
-          {activeTab === 'early_payment' && (
-            <EarlyPaymentClosure currentUser={currentUser!} />
-          )}
         </main>
       </div>
+
+      {/* Chat Overlay - MOVED HERE */}
+      {activeTab === 'chat' && (
+        <div className="fixed inset-0 z-[100] bg-white animate-fade-in">
+          <div className="relative h-full">
+            {/* Close button to go back */}
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className="absolute top-4 left-4 z-[101] p-2 bg-white/80 hover:bg-white rounded-full shadow-lg border border-slate-200 transition-all"
+              title="Back to Dashboard"
+            >
+              <X className="w-5 h-5 text-slate-600" />
+            </button>
+            <ChatRoom currentUser={currentUser!} />
+          </div>
+        </div>
+      )}
 
       {/* AI Assistant - REMOVED */}
     </div>

@@ -27,6 +27,8 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-i18next": "^17.0.8",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "vite": "^6.2.3"
   },
   "devDependencies": {

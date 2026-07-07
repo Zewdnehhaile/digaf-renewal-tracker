@@ -6,13 +6,13 @@ import { CheckCircle, Trash2, Copy, Search, Archive, AlertCircle } from 'lucide-
 
 interface CompletedLoansProps {
   currentUser: User;
+  view?: 'all' | 'today';
 }
 
-export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
+export default function CompletedLoans({ currentUser, view = 'today' }: CompletedLoansProps) {
   const [completed, setCompleted] = useState<FirstRoundApplicant[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState<'all' | 'today'>('all');
   const today = new Date().toISOString().split('T')[0];
   const todayCompleted = completed.filter(a => a.completedAt?.split('T')[0] === today);
   useEffect(() => {
@@ -32,10 +32,10 @@ export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
 
   const filtered = completed
     .filter(a => {
-      if (filterType === 'today') {
+      if (view === 'today') {
         return a.completedAt?.split('T')[0] === today;
       }
-      return true;
+      return true; // Show all for 'all' view
     })
     .filter(a =>
       a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -47,63 +47,64 @@ export default function CompletedLoans({ currentUser }: CompletedLoansProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-            <Archive className="w-5 h-5 text-emerald-500" />
-            Completed Loans
-          </h2>
-          <p className="text-sm text-slate-500">Store successfully reviewed applicants</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg text-xs font-bold text-emerald-600">
-            {completed.length} Completed
+      {/* Header for 'today' view */}
+      {view === 'today' && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+              <Archive className="w-5 h-5 text-emerald-500" />
+              Today's Completed
+            </h2>
+            <p className="text-sm text-slate-500">Successfully reviewed applicants today</p>
           </div>
-          {todayCompleted.length > 0 && (
-            <div className="px-3 py-1.5 bg-violet-50 border border-violet-100 rounded-lg text-xs font-bold text-[#8B5CF6]">
+          <div className="flex items-center gap-3">
+            <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg text-xs font-bold text-emerald-600">
               {todayCompleted.length} Today
             </div>
-          )}
-        </div>
-      </div>
-
-      {olderCompleted.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-500" />
-            <div>
-              <p className="text-sm font-bold text-amber-800">Important: Yesterday's completed files are cluttering the archive.</p>
-              <p className="text-xs text-amber-600">{olderCompleted.length} records from previous days</p>
-            </div>
           </div>
-          <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer">
-            <Archive className="w-3.5 h-3.5 inline mr-1" />
-            Move To Reports
-          </button>
         </div>
       )}
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-3">
-        <button
-          onClick={() => setFilterType('all')}
-          className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'all'
-            ? 'bg-[#8B5CF6] text-white border-[#8B5CF6]'
-            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-        >
-          All ({completed.length})
-        </button>
-        <button
-          onClick={() => setFilterType('today')}
-          className={`px-4 py-1.5 text-xs font-black rounded-lg border transition-all cursor-pointer ${filterType === 'today'
-            ? 'bg-emerald-500 text-white border-emerald-500'
-            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-        >
-          Today ({todayCompleted.length})
+      {/* Header for 'all' view */}
+      {view === 'all' && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+              <Archive className="w-5 h-5 text-emerald-500" />
+              Total Completed
+            </h2>
+            <p className="text-sm text-slate-500">All successfully reviewed applicants</p>
+          </div>
+          <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg text-xs font-bold text-emerald-600">
+            {completed.length} Total
+          </div>
+        </div>
+      )}
+
+      {/* Remove the olderCompleted warning section - DELETE THIS ENTIRE BLOCK */}
+      {/* {olderCompleted.length > 0 && (
+      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Important: Yesterday's completed files are cluttering the archive.</p>
+            <p className="text-xs text-amber-600">{olderCompleted.length} records from previous days</p>
+          </div>
+        </div>
+        <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer">
+          <Archive className="w-3.5 h-3.5 inline mr-1" />
+          Move To Reports
         </button>
       </div>
+    )} */}
+
+      {/* Today's Completed badge - REMOVE THIS ENTIRE BLOCK */}
+      {/* <div className="flex items-center gap-2 mb-3">
+      <span className="text-xs font-black text-slate-500">Today's Completed:</span>
+      <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-black rounded-full">
+        {todayCompleted.length}
+      </span>
+    </div> */}
 
       {/* Search */}
       <div className="relative">

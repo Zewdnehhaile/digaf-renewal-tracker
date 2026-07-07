@@ -509,6 +509,7 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+  // --- DELETE CHAT MESSAGE ---
   app.delete('/api/chats/:id', async (req, res) => {
     try {
       const { id } = req.params;
@@ -537,6 +538,62 @@ async function startServer() {
       res.json({ success: true });
     } catch (error: any) {
       console.error('Delete chat error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // --- GROUPS ---
+  app.get('/api/groups', async (req, res) => {
+    try {
+      const groups = await db.collection('groups').find({}).toArray();
+      res.json(groups);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/groups', async (req, res) => {
+    try {
+      const groupData = req.body;
+      if (!groupData.createdAt) groupData.createdAt = new Date().toISOString();
+      if (!groupData.id) groupData.id = `group-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      const result = await db.collection('groups').insertOne(groupData);
+      res.json({ _id: result.insertedId, ...groupData });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/groups/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      const result = await db.collection('groups').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/groups/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('groups').deleteOne({ id: id });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

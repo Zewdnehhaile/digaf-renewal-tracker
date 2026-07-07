@@ -27,6 +27,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
     const [applicantText, setApplicantText] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [addingApplicants, setAddingApplicants] = useState(false);
     const [filterType, setFilterType] = useState<'all' | 'today'>('all');
     const today = new Date().toISOString().split('T')[0];
     const todayApplicants = applicants.filter(a => a.createdAt?.split('T')[0] === today);
@@ -54,22 +55,27 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     // Add applicant
     // Add applicant - UPDATED VERSION
     const handleAddApplicant = async () => {
-        if (!applicantText.trim()) return;
+        setAddingApplicants(true);
+
+        if (!applicantText.trim()) {
+            alert('❌ Please enter applicant details.');
+            setAddingApplicants(false);
+            return;
+        }
 
         const lines = applicantText.split('\n').filter(line => line.trim());
         const newApplicants: FirstRoundApplicant[] = [];
 
         if (inputMode === 'single') {
-            // Format: Full Name, Field of Work, Address, Position, Phone Number
             const [fullName, fieldOfWork, address, position, phoneNumber, ...notes] = lines;
 
             const applicant: FirstRoundApplicant = {
                 id: `fr-${Date.now()}`,
                 referenceId: `REF-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
                 name: fullName || 'Unknown',
-                bank: fieldOfWork || '',        // Field of work (yesera tekuam)
-                branch: address || '',          // Address of field
-                position: position || '',       // Work position
+                bank: fieldOfWork || '',
+                branch: address || '',
+                position: position || '',
                 phoneNumber: phoneNumber || '',
                 notes: notes.join('\n'),
                 status: 'pending',
@@ -80,7 +86,6 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
             };
             newApplicants.push(applicant);
         } else {
-            // Bulk mode - just names
             lines.forEach(name => {
                 if (name.trim()) {
                     newApplicants.push({
@@ -102,16 +107,24 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
             });
         }
 
-        try {
-            await dbService.addFirstRoundApplicants(newApplicants);
-            setApplicants([...newApplicants, ...applicants]);
-            setApplicantText('');
-            setShowAddForm(false);
-            alert(`✅ ${newApplicants.length} applicant(s) added successfully!`);
-        } catch (error) {
-            console.error('Error adding applicants:', error);
-            alert('❌ Failed to add applicant. Please try again.');
-        }
+      try {
+  // OPTIMISTIC UPDATE - Show immediately
+  setApplicants(prev => [...newApplicants, ...prev]);
+
+  // Save to database in background
+  await dbService.addFirstRoundApplicants(newApplicants);
+
+  setApplicantText('');
+  setShowAddForm(false);
+  setAddingApplicants(false); // <-- Move here after save
+  alert(`✅ ${newApplicants.length} applicant(s) added successfully!`);
+} catch (error) {
+  console.error('Error adding applicants:', error);
+  // Rollback on error
+  setApplicants(prev => prev.filter(a => !newApplicants.some(n => n.id === a.id)));
+  alert('❌ Failed to add applicant. Please try again.');
+  setAddingApplicants(false);
+}
     };
     // Complete applicant
     const handleComplete = async (applicant: FirstRoundApplicant) => {
@@ -254,8 +267,19 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                             />
                         </div>
                         <div className="flex gap-3">
-                            <button onClick={handleAddApplicant} className="px-6 py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer">
-                                Add Applicant
+                            <button
+                                onClick={handleAddApplicant}
+                                disabled={addingApplicants}
+                                className="px-6 py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {addingApplicants ? (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        Adding...
+                                    </>
+                                ) : (
+                                    'Add Applicant'
+                                )}
                             </button>
                             <button onClick={() => { setShowAddForm(false); setApplicantText(''); }} className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all cursor-pointer">
                                 Cancel
@@ -297,7 +321,7 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] text-sm"
                 />
             </div>
-          
+
 
             {/* Applicants List */}
             {loading ? (
