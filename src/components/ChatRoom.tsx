@@ -134,7 +134,10 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
 
   // ========== SOCKET.IO INITIALIZATION ==========
   useEffect(() => {
-    const newSocket = io('http://localhost:3000');
+    const socketUrl = process.env.NODE_ENV === 'production'
+      ? 'https://digaf-api.onrender.com'  // ✅ Your backend on Render
+      : 'http://localhost:3000';
+    const newSocket = io(socketUrl);
     newSocket.emit('register', currentUser.phoneNumber);
 
     // Listen for incoming calls
@@ -146,9 +149,22 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       // Play ringtone sound if allowed
       if (settingsSound) {
         try {
+          // Try multiple paths
           const audio = new Audio('/ringtone.mp3');
-          audio.play().catch(() => {});
-        } catch (e) {}
+          audio.play().catch(() => {
+            // Fallback: use Web Audio API to generate a simple beep
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+          });
+        } catch (e) { }
       }
     });
 
