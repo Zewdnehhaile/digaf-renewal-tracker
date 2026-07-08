@@ -13,15 +13,27 @@ const toArray = (docs: any[]) => docs.map((doc: any) => {
   // Keep _id as well for reference
   return result;
 });
-
 async function apiRequest(endpoint: string, options: any = {}) {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: options.method || 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    body: options.data ? JSON.stringify(options.data) : undefined,
-  });
-  if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
-  return response.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: options.method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: options.data ? JSON.stringify(options.data) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`Request timeout for ${endpoint}`);
+    }
+    throw error;
+  }
 }
 
 export function getTodayDateString(): string {
@@ -113,10 +125,10 @@ export const dbService = {
   // In db.ts, update the subscribeChats function:
   // In src/services/db.ts
   subscribeChats: (callback: (data: any[]) => void) => {
-    
+
     const f = async () => {
       try {
-        
+
         const d = await apiRequest('/chats');
 
         callback(toArray(d));
@@ -128,7 +140,7 @@ export const dbService = {
     f();
     const i = setInterval(f, 5000);
     return () => {
-      
+
       clearInterval(i);
     };
   },
