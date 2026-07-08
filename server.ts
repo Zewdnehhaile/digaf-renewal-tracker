@@ -7,6 +7,8 @@ import { createServer as createViteServer } from "vite";
 import { MongoClient, ObjectId } from 'mongodb';
 import { GoogleGenAI, Type } from "@google/genai";
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server as SocketServer } from 'socket.io';
 
 const MONGODB_URI =
   "mongodb://Digaf_MFI:erCb6Ucnq5pNBS3K@ac-nkqt4y6-shard-00-00.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-01.yiz1p7x.mongodb.net:27017,ac-nkqt4y6-shard-00-02.yiz1p7x.mongodb.net:27017/?ssl=true&replicaSet=atlas-fqjsli-shard-0&authSource=admin&retryWrites=true&w=majority";
@@ -33,39 +35,29 @@ function getDB() {
   return db;
 }
 
-// Helper function to find customer by id or _id
+// Helper functions
 async function findCustomerById(collection: any, id: string) {
   let query: any = { id: id };
-
-  // Check if id is a valid ObjectId
   if (ObjectId.isValid(id)) {
     try {
       const doc = await collection.findOne({ _id: new ObjectId(id) });
       if (doc) return doc;
     } catch (e) { }
   }
-
-  // Try by id field
   return await collection.findOne({ id: id });
 }
 
-// Helper function to delete customer by id or _id
 async function deleteCustomerById(collection: any, id: string) {
-  // Try by ObjectId first
   if (ObjectId.isValid(id)) {
     try {
       const result = await collection.deleteOne({ _id: new ObjectId(id) });
       if (result.deletedCount > 0) return result;
     } catch (e) { }
   }
-
-  // Try by id field
   return await collection.deleteOne({ id: id });
 }
 
-// Helper function to update customer by id or _id
 async function updateCustomerById(collection: any, id: string, updates: any) {
-  // Try by ObjectId first
   if (ObjectId.isValid(id)) {
     try {
       const result = await collection.updateOne(
@@ -75,8 +67,6 @@ async function updateCustomerById(collection: any, id: string, updates: any) {
       if (result.modifiedCount > 0 || result.matchedCount > 0) return result;
     } catch (e) { }
   }
-
-  // Try by id field
   return await collection.updateOne(
     { id: id },
     { $set: updates }
@@ -87,7 +77,7 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3002;
 
-  // ========== CORS - MUST BE FIRST ==========
+  // ========== CORS ==========
   app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -105,21 +95,22 @@ async function startServer() {
     }
     next();
   });
+
   try {
     await connectDB();
   } catch (err) {
     console.error('⚠️ MongoDB connection failed, but server will continue:', err);
-    // Continue without DB - API routes will fail but frontend will work
   }
   const db = getDB();
 
   app.use(express.json({ limit: "15mb" }));
-  // Add this right after app.use(express.json({ limit: "15mb" }));
+
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
+
   // ============================================================
-  // ==================== MONGODB API ROUTES ====================
+  // ==================== API ROUTES =============================
   // ============================================================
 
   // --- USERS ---
@@ -178,63 +169,44 @@ async function startServer() {
 
   app.post('/api/customers', async (req, res) => {
     try {
-      // Generate an id if not provided
       if (!req.body.id) {
         req.body.id = `cust-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
       }
-      // Add timestamps if not present
       if (!req.body.addedDate) req.body.addedDate = new Date().toISOString();
       if (!req.body.updatedDate) req.body.updatedDate = new Date().toISOString();
       if (!req.body.createdAt) req.body.createdAt = new Date().toISOString();
 
       const result = await db.collection('customers').insertOne(req.body);
-      // Return the full customer with BOTH _id and id
       const inserted = await db.collection('customers').findOne({ _id: result.insertedId });
-
-      // Ensure id exists in the response (use the generated id)
       if (inserted && !inserted.id) {
         inserted.id = req.body.id;
       }
-
       res.json(inserted);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // FIXED: DELETE route with both id and _id support
   app.delete('/api/customers/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      console.log('🔴 DELETE request for:', id);
-
       let result;
 
-      // FIRST: Try by id field (string ID like "cust-9vys0uuto")
       result = await db.collection('customers').deleteOne({ id: id });
-      console.log('Delete by id field result:', result.deletedCount);
-
-      // If not deleted, try by _id as ObjectId (for MongoDB ObjectIds)
       if (result.deletedCount === 0) {
         try {
           const objectId = new ObjectId(id);
           result = await db.collection('customers').deleteOne({ _id: objectId });
-          console.log('Delete by ObjectId result:', result.deletedCount);
         } catch (e) {
-          console.log('Not a valid ObjectId, trying as string...');
-          // If not a valid ObjectId, try by _id as string
           result = await db.collection('customers').deleteOne({ _id: id });
-          console.log('Delete by _id string result:', result.deletedCount);
         }
       }
 
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Customer not found' });
       }
-
       res.json({ success: true, deletedId: id });
     } catch (error: any) {
-      console.error('Delete error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -247,8 +219,6 @@ async function startServer() {
       updates.updatedDate = new Date().toISOString();
 
       let result;
-
-      // Try by _id
       if (id.length === 24) {
         try {
           const objectId = new ObjectId(id);
@@ -259,7 +229,6 @@ async function startServer() {
         } catch (e) { }
       }
 
-      // Try by id field
       if (!result || result.matchedCount === 0) {
         result = await db.collection('customers').updateOne(
           { id: id },
@@ -267,7 +236,6 @@ async function startServer() {
         );
       }
 
-      // Try by _id as string
       if (!result || result.matchedCount === 0) {
         result = await db.collection('customers').updateOne(
           { _id: id },
@@ -279,12 +247,10 @@ async function startServer() {
         return res.status(404).json({ error: 'Customer not found' });
       }
 
-      // Return updated customer
       const updated = await db.collection('customers').findOne({ id: id }) ||
         await db.collection('customers').findOne({ _id: new ObjectId(id) });
       res.json(updated || updates);
     } catch (error: any) {
-      console.error('Update error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -339,8 +305,6 @@ async function startServer() {
     }
   });
 
-
-
   // --- ATTENDANCE SETTINGS ---
   app.get('/api/attendance-settings', async (req, res) => {
     try {
@@ -393,6 +357,7 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+
   // --- NOTIFICATIONS ---
   app.get('/api/notifications/:userId', async (req, res) => {
     try {
@@ -465,18 +430,14 @@ async function startServer() {
   // --- CHATS ---
   app.get('/api/chats', async (req, res) => {
     try {
-      // Check if collection exists first
       const collections = await db.listCollections().toArray();
       const chatCollectionExists = collections.some(c => c.name === 'chats');
-
       if (!chatCollectionExists) {
         return res.json([]);
       }
-
       const chats = await db.collection('chats').find({}).sort({ createdAt: -1 }).limit(1000).toArray();
       res.json(chats);
     } catch (error: any) {
-      console.error('Error fetching chats:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -509,24 +470,19 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
-  // --- DELETE CHAT MESSAGE ---
+
   app.delete('/api/chats/:id', async (req, res) => {
     try {
       const { id } = req.params;
       let result;
 
-      // Try by id field first
       result = await db.collection('chats').deleteOne({ id: id });
-
-      // If not found, try by _id as ObjectId
       if (result.deletedCount === 0) {
         try {
           const objectId = new ObjectId(id);
           result = await db.collection('chats').deleteOne({ _id: objectId });
         } catch (e) { }
       }
-
-      // If still not found, try by _id as string
       if (result.deletedCount === 0) {
         result = await db.collection('chats').deleteOne({ _id: id });
       }
@@ -534,13 +490,12 @@ async function startServer() {
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Message not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
-      console.error('Delete chat error:', error);
       res.status(500).json({ error: error.message });
     }
   });
+
   // --- GROUPS ---
   app.get('/api/groups', async (req, res) => {
     try {
@@ -597,6 +552,7 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+
   // --- ACTIVITY LOGS ---
   app.get('/api/activity-logs', async (req, res) => {
     try {
@@ -698,7 +654,6 @@ async function startServer() {
       }
       res.json(updates);
     } catch (error: any) {
-      console.error('Update error:', error);
       res.status(500).json({ error: error.message, stack: error.stack });
     }
   });
@@ -759,8 +714,9 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+
   // ============================================================
-  // ================ BLACKLIST ====================
+  // ================ BLACKLIST ==================================
   // ============================================================
 
   app.get('/api/blacklist', async (req, res) => {
@@ -775,12 +731,8 @@ async function startServer() {
   app.post('/api/blacklist', async (req, res) => {
     try {
       const entry = req.body;
-      if (!entry.id) {
-        entry.id = `bl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      }
-      if (!entry.dateAdded) {
-        entry.dateAdded = new Date().toISOString();
-      }
+      if (!entry.id) entry.id = `bl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      if (!entry.dateAdded) entry.dateAdded = new Date().toISOString();
       entry.createdAt = new Date().toISOString();
       entry.updatedAt = new Date().toISOString();
 
@@ -806,7 +758,6 @@ async function startServer() {
       if (result.matchedCount === 0) {
         return res.status(404).json({ error: 'Entry not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -817,11 +768,9 @@ async function startServer() {
     try {
       const { id } = req.params;
       const result = await db.collection('blacklist').deleteOne({ id: id });
-
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Entry not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -842,7 +791,7 @@ async function startServer() {
   });
 
   // ============================================================
-  // ================ GUARANTORS ====================
+  // ================ GUARANTORS ================================
   // ============================================================
 
   app.get('/api/guarantors', async (req, res) => {
@@ -857,9 +806,7 @@ async function startServer() {
   app.post('/api/guarantors', async (req, res) => {
     try {
       const guarantor = req.body;
-      if (!guarantor.id) {
-        guarantor.id = `g-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      }
+      if (!guarantor.id) guarantor.id = `g-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       guarantor.createdAt = new Date().toISOString();
       guarantor.updatedAt = new Date().toISOString();
 
@@ -885,7 +832,6 @@ async function startServer() {
       if (result.matchedCount === 0) {
         return res.status(404).json({ error: 'Guarantor not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -896,11 +842,9 @@ async function startServer() {
     try {
       const { id } = req.params;
       const result = await db.collection('guarantors').deleteOne({ id: id });
-
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Guarantor not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -924,7 +868,7 @@ async function startServer() {
   });
 
   // ============================================================
-  // ================ NON BORROWERS ====================
+  // ================ NON BORROWERS =============================
   // ============================================================
 
   app.get('/api/non-borrowers', async (req, res) => {
@@ -939,12 +883,8 @@ async function startServer() {
   app.post('/api/non-borrowers', async (req, res) => {
     try {
       const nonBorrower = req.body;
-      if (!nonBorrower.id) {
-        nonBorrower.id = `nb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      }
-      if (!nonBorrower.dateAdded) {
-        nonBorrower.dateAdded = new Date().toISOString();
-      }
+      if (!nonBorrower.id) nonBorrower.id = `nb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      if (!nonBorrower.dateAdded) nonBorrower.dateAdded = new Date().toISOString();
       nonBorrower.createdAt = new Date().toISOString();
       nonBorrower.updatedAt = new Date().toISOString();
 
@@ -970,7 +910,6 @@ async function startServer() {
       if (result.matchedCount === 0) {
         return res.status(404).json({ error: 'Non-borrower not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -981,18 +920,17 @@ async function startServer() {
     try {
       const { id } = req.params;
       const result = await db.collection('non_borrowers').deleteOne({ id: id });
-
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Non-borrower not found' });
       }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
+
   // ============================================================
-  // ================ EARLY PAYMENT CLOSURE ====================
+  // ================ EARLY PAYMENT CLOSURE =====================
   // ============================================================
 
   app.get('/api/early-payment', async (req, res) => {
@@ -1045,7 +983,6 @@ async function startServer() {
     try {
       const { id } = req.params;
       const result = await db.collection('early_payment').deleteOne({ id: id });
-
       if (result.deletedCount === 0) {
         return res.status(404).json({ error: 'Record not found' });
       }
@@ -1054,8 +991,9 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+
   // ============================================================
-  // ================ REPORTS DATA ====================
+  // ================ REPORTS DATA ==============================
   // ============================================================
 
   app.get('/api/reports/blacklist', async (req, res) => {
@@ -1084,16 +1022,18 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+
   // ============================================================
-  // ==================== AI ROUTES ==============================
+  // ==================== AI ROUTES =============================
   // ============================================================
 
   let aiClient: GoogleGenAI | null = null;
+
   function getAI() {
     if (!aiClient) {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new Error("GEMINI_API_KEY environment variable is required but missing. Please supply it via Settings.");
+        throw new Error("GEMINI_API_KEY environment variable is required but missing.");
       }
       aiClient = new GoogleGenAI({ apiKey });
     }
@@ -1113,7 +1053,6 @@ async function startServer() {
     try {
       return JSON.parse(cleaned);
     } catch (err) {
-      console.warn("[JSON Parse Warning] Standard JSON parse failed, trying regex extraction.");
       const bIndex = cleaned.indexOf("{");
       const eIndex = cleaned.lastIndexOf("}");
       if (bIndex !== -1 && eIndex !== -1 && eIndex > bIndex) {
@@ -1131,15 +1070,15 @@ async function startServer() {
   function getLanguageInstruction(language: string, isJson = false) {
     if (language === "am") {
       return isJson
-        ? "\nCRITICAL DIRECTION: All JSON string values, summaries, and bullet points MUST be written entirely in elegant, high-quality, professional Amharic (አማርኛ) using the correct Ethiopic/Geez charset. The structural JSON keys themselves MUST remain in English as requested to keep frontend code compatible. But their string values MUST be in Amharic.\n"
-        : "\nCRITICAL DIRECTION: Your entire output response MUST be written in elegant, high-quality, professional Amharic (አማርኛ) using Ethiopic letters.\n";
+        ? "\nCRITICAL DIRECTION: All JSON string values must be written in Amharic.\n"
+        : "\nCRITICAL DIRECTION: Your entire output response must be written in Amharic.\n";
     }
     if (language === "om") {
       return isJson
-        ? "\nCRITICAL DIRECTION: All JSON string values, summaries, and bullet points MUST be written entirely in elegant, high-quality, professional Afan Oromo (Latin/Qubee script). The structural JSON keys themselves MUST remain in English. But their string values MUST be in Afan Oromo.\n"
-        : "\nCRITICAL DIRECTION: Your entire output response MUST be written in elegant, high-quality, professional Afan Oromo.\n";
+        ? "\nCRITICAL DIRECTION: All JSON string values must be written in Afan Oromo.\n"
+        : "\nCRITICAL DIRECTION: Your entire output response must be written in Afan Oromo.\n";
     }
-    return "\nYour response MUST be written in fluent, professional, structured business English.\n";
+    return "\nYour response must be written in fluent, professional business English.\n";
   }
 
   // --- AI: Customer Brief ---
@@ -1262,7 +1201,7 @@ Respond in clean, valid JSON only. Do not wrap in markdown or prefix with anythi
   // --- AI: Assistant ---
   app.post("/api/ai/assistant", async (req, res) => {
     try {
-      const { message, history, customers, logs, username, language, currentUser, attendanceRecords } = req.body;
+      const { message, history, customers, logs, username, language, currentUser } = req.body;
       const ai = getAI();
       const langInst = getLanguageInstruction(language, false);
       const isZewdneh = !!(currentUser?.fullName?.toLowerCase().includes('zewd') || currentUser?.phoneNumber?.toLowerCase().includes('zewd') || currentUser?.role === 'admin');
@@ -1625,7 +1564,6 @@ ${langInst}
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
 
-    // Explicitly handle /attendance route - BEFORE static files
     app.get('/attendance', (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
@@ -1638,9 +1576,7 @@ ${langInst}
       }
       res.sendFile(path.join(distPath, "index.html"));
     });
-  }
-
-  else {
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -1662,8 +1598,101 @@ ${langInst}
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  // ============================================================
+  // ==================== SOCKET.IO SETUP =======================
+  // ============================================================
+
+  // Create HTTP server from the Express app
+  const httpServer = createServer(app);
+  const io = new SocketServer(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    }
+  });
+
+  // Socket.io connection handling
+  io.on('connection', (socket) => {
+    console.log('🔗 User connected:', socket.id);
+
+    socket.on('register', (phoneNumber) => {
+      socket.data.phoneNumber = phoneNumber;
+      console.log(`📱 User ${phoneNumber} registered with socket ${socket.id}`);
+    });
+
+    socket.on('call-offer', ({ to, offer, type }) => {
+      console.log(`📞 Call offer from ${socket.data.phoneNumber} to ${to}`);
+      const targetSocket = findUserSocket(to);
+      if (targetSocket) {
+        targetSocket.emit('incoming-call', {
+          from: socket.data.phoneNumber,
+          offer: offer,
+          type: type
+        });
+      } else {
+        socket.emit('call-error', { message: 'User not online' });
+      }
+    });
+
+    socket.on('call-answer', ({ to, answer }) => {
+      console.log(`📞 Call answer from ${socket.data.phoneNumber} to ${to}`);
+      const targetSocket = findUserSocket(to);
+      if (targetSocket) {
+        targetSocket.emit('call-connected', {
+          from: socket.data.phoneNumber,
+          answer: answer
+        });
+      }
+    });
+
+    socket.on('ice-candidate', ({ to, candidate }) => {
+      const targetSocket = findUserSocket(to);
+      if (targetSocket) {
+        targetSocket.emit('ice-candidate', {
+          from: socket.data.phoneNumber,
+          candidate: candidate
+        });
+      }
+    });
+
+    socket.on('call-reject', ({ to }) => {
+      console.log(`📞 Call rejected from ${socket.data.phoneNumber} to ${to}`);
+      const targetSocket = findUserSocket(to);
+      if (targetSocket) {
+        targetSocket.emit('call-rejected', { from: socket.data.phoneNumber });
+      }
+    });
+
+    socket.on('call-hangup', ({ to }) => {
+      console.log(`📞 Call hangup from ${socket.data.phoneNumber} to ${to}`);
+      const targetSocket = findUserSocket(to);
+      if (targetSocket) {
+        targetSocket.emit('call-ended', { from: socket.data.phoneNumber });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      console.log('🔌 User disconnected:', socket.data.phoneNumber);
+    });
+  });
+
+  // Helper to find user socket by phone number
+  const findUserSocket = (phoneNumber: string) => {
+    for (const [id, socket] of io.sockets.sockets) {
+      if (socket.data.phoneNumber === phoneNumber) {
+        return socket;
+      }
+    }
+    return null;
+  };
+
+  // ============================================================
+  // ==================== START SERVER ==========================
+  // ============================================================
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`[Digaf Server] Running full-stack on port ${PORT}`);
+    console.log(`🔌 Socket.io server ready for voice/video calls`);
   });
 }
 

@@ -7,43 +7,35 @@ import { CheckCircle, Trash2, Copy, Search, Archive, AlertCircle } from 'lucide-
 interface CompletedLoansProps {
   currentUser: User;
   view?: 'all' | 'today';
+  applicants?: FirstRoundApplicant[];
 }
 
-export default function CompletedLoans({ currentUser, view = 'today' }: CompletedLoansProps) {
-  const [completed, setCompleted] = useState<FirstRoundApplicant[]>([]);
+export default function CompletedLoans({ currentUser, view = 'today', applicants: propApplicants }: CompletedLoansProps) {
+  const [completed, setCompleted] = useState<FirstRoundApplicant[]>(propApplicants || []);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split('T')[0];
   const todayCompleted = completed.filter(a => a.completedAt?.split('T')[0] === today);
+
+  // Use data from parent instead of fetching
   useEffect(() => {
-    const fetchCompleted = async () => {
-      try {
-        const data = await dbService.getFirstRoundApplicants();
-        const completedOnly = data.filter((a: any) => a.status === 'completed');
-        setCompleted(completedOnly);
-      } catch (error) {
-        console.error('Error fetching completed:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCompleted();
-  }, []);
+    if (propApplicants) {
+      setCompleted(propApplicants.filter((a: any) => a.status === 'completed'));
+      setLoading(false);
+    }
+  }, [propApplicants]);
 
   const filtered = completed
     .filter(a => {
       if (view === 'today') {
         return a.completedAt?.split('T')[0] === today;
       }
-      return true; // Show all for 'all' view
+      return true;
     })
     .filter(a =>
       a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.referenceId.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-
-  const olderCompleted = completed.filter(a => a.completedAt?.split('T')[0] !== today);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -80,31 +72,6 @@ export default function CompletedLoans({ currentUser, view = 'today' }: Complete
           </div>
         </div>
       )}
-
-      {/* Remove the olderCompleted warning section - DELETE THIS ENTIRE BLOCK */}
-      {/* {olderCompleted.length > 0 && (
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500" />
-          <div>
-            <p className="text-sm font-bold text-amber-800">Important: Yesterday's completed files are cluttering the archive.</p>
-            <p className="text-xs text-amber-600">{olderCompleted.length} records from previous days</p>
-          </div>
-        </div>
-        <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer">
-          <Archive className="w-3.5 h-3.5 inline mr-1" />
-          Move To Reports
-        </button>
-      </div>
-    )} */}
-
-      {/* Today's Completed badge - REMOVE THIS ENTIRE BLOCK */}
-      {/* <div className="flex items-center gap-2 mb-3">
-      <span className="text-xs font-black text-slate-500">Today's Completed:</span>
-      <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-black rounded-full">
-        {todayCompleted.length}
-      </span>
-    </div> */}
 
       {/* Search */}
       <div className="relative">

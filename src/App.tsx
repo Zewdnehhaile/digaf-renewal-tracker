@@ -108,9 +108,11 @@ export default function App() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
   const [officerPermissions, setOfficerPermissions] = useState<OfficerAIPermission[]>([]);
+  const [firstRoundApplicants, setFirstRoundApplicants] = useState<any[]>([]);
   const [firstRoundPendingCount, setFirstRoundPendingCount] = useState(0);
   const [firstRoundCompletedCount, setFirstRoundCompletedCount] = useState(0);
   const [firstRoundCompletedToday, setFirstRoundCompletedToday] = useState(0);
+
   const isZewdneh = currentUser?.role === 'super_admin';
   const isAdminStaff = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
@@ -284,6 +286,7 @@ export default function App() {
     const fetchFirstRoundCounts = async () => {
       try {
         const data = await dbService.getFirstRoundApplicants();
+        setFirstRoundApplicants(data);
         const today = new Date().toISOString().split('T')[0];
 
         const pending = data.filter((a: any) => a.status === 'pending').length;
@@ -1079,15 +1082,24 @@ export default function App() {
 */}
 
           {currentRound === 'first' && activeTab === 'first_round_queue' && (
-            <FirstRoundQueue currentUser={currentUser!} />
+            <FirstRoundQueue
+              currentUser={currentUser!}
+              applicants={firstRoundApplicants}
+            />
           )}
-
           {currentRound === 'first' && activeTab === 'first_round_completed' && (
-            <CompletedLoans currentUser={currentUser!} view="all" />
+            <CompletedLoans
+              currentUser={currentUser!}
+              view="all"
+              applicants={firstRoundApplicants}
+            />
           )}
-
           {currentRound === 'first' && activeTab === 'first_round_completed_today' && (
-            <CompletedLoans currentUser={currentUser!} view="today" />
+            <CompletedLoans
+              currentUser={currentUser!}
+              view="today"
+              applicants={firstRoundApplicants}
+            />
           )}
 
           {currentRound === 'first' && activeTab === 'first_round_reports' && (

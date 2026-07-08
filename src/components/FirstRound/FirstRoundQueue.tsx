@@ -18,11 +18,12 @@ import {
 
 interface FirstRoundQueueProps {
     currentUser: User;
+    applicants?: FirstRoundApplicant[];
 }
 
-export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
-    const [applicants, setApplicants] = useState<FirstRoundApplicant[]>([]);
-    const [loading, setLoading] = useState(true);
+export default function FirstRoundQueue({ currentUser, applicants: propApplicants }: FirstRoundQueueProps) {
+    const [applicants, setApplicants] = useState<FirstRoundApplicant[]>(propApplicants || []);
+    const [loading, setLoading] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
     const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
     const [applicantText, setApplicantText] = useState('');
@@ -36,21 +37,13 @@ export default function FirstRoundQueue({ currentUser }: FirstRoundQueueProps) {
     const [editFormData, setEditFormData] = useState<any>({});
 
     // Fetch applicants from MongoDB
-    const fetchApplicants = async () => {
-        try {
-            const data = await dbService.getFirstRoundApplicants();
-            const pendingOnly = data.filter((a: any) => a.status === 'pending');
-            setApplicants(pendingOnly);
-        } catch (error) {
-            console.error('Error fetching applicants:', error);
-        } finally {
+        // Use data from parent instead of fetching
+    useEffect(() => {
+        if (propApplicants) {
+            setApplicants(propApplicants.filter((a: any) => a.status === 'pending'));
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchApplicants();
-    }, []);
+    }, [propApplicants]);
 
     // Add applicant
     // Add applicant - UPDATED VERSION

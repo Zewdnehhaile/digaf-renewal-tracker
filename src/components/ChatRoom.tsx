@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, ChatMessage } from '../types';
 import { dbService } from '../services/db';
 import { notificationService } from '../services/notificationService';
+import { io, Socket } from 'socket.io-client';
 import {
   MessageSquare,
   Search,
@@ -101,6 +102,15 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
   const [uploadedFileUrls, setUploadedFileUrls] = useState<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ========== SOCKET.IO STATES ==========
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [incomingCaller, setIncomingCaller] = useState<string | null>(null);
+  const [incomingOffer, setIncomingOffer] = useState<any>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
+
   // Call states
   const [isCalling, setIsCalling] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
@@ -121,6 +131,64 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
   const [settingsSound, setSettingsSound] = useState(true);
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
+
+  // ========== SOCKET.IO INITIALIZATION ==========
+  useEffect(() => {
+    const newSocket = io('http://localhost:3000');
+    newSocket.emit('register', currentUser.phoneNumber);
+
+    // Listen for incoming calls
+    newSocket.on('incoming-call', ({ from, offer, type }) => {
+      setIncomingCaller(from);
+      setIncomingOffer(offer);
+      setCallType(type);
+      setCallStatus('incoming');
+      // Play ringtone sound if allowed
+      if (settingsSound) {
+        try {
+          const audio = new Audio('/ringtone.mp3');
+          audio.play().catch(() => {});
+        } catch (e) {}
+      }
+    });
+
+    newSocket.on('call-connected', ({ from, answer }) => {
+      if (peerConnection) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        setCallStatus('connected');
+        setIsCalling(false);
+        setIsInCall(true);
+      }
+    });
+
+    newSocket.on('call-ended', ({ from }) => {
+      endRealCall();
+    });
+
+    newSocket.on('call-rejected', ({ from }) => {
+      alert(`📞 ${from} rejected your call.`);
+      setIsCalling(false);
+      setCallStatus('idle');
+    });
+
+    newSocket.on('ice-candidate', ({ from, candidate }) => {
+      if (peerConnection) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerConnection) {
+        peerConnection.close();
+      }
+    };
+  }, [currentUser.phoneNumber]);
 
   // Fetch groups
   useEffect(() => {
@@ -336,6 +404,190 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [messages, activeContact, currentUser.phoneNumber]);
 
+  // ========== REAL CALL FUNCTIONS ==========
+  const startRealCall = async (type: 'voice' | 'video') => {
+    if (!activeContact || !socket) {
+      alert('Please select a contact first.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: type === 'video'
+      });
+      setLocalStream(stream);
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+        ]
+      });
+
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.ontrack = (event) => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', {
+            to: activeContact.phoneNumber,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit('call-offer', {
+        to: activeContact.phoneNumber,
+        offer: offer,
+        type: type
+      });
+
+      setPeerConnection(pc);
+      setCallStatus('calling');
+      setCallType(type);
+      setIsCalling(true);
+
+      socket.once('call-connected', async ({ answer }) => {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        setCallStatus('connected');
+        setIsCalling(false);
+        setIsInCall(true);
+      });
+
+      socket.once('call-rejected', () => {
+        setIsCalling(false);
+        setCallStatus('idle');
+        alert('📞 Call rejected by the other user.');
+      });
+
+    } catch (error) {
+      console.error('Error starting call:', error);
+      alert('Failed to start call. Please check microphone/camera permissions.');
+      setIsCalling(false);
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!incomingCaller || !socket || !incomingOffer) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: callType === 'video'
+      });
+      setLocalStream(stream);
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+        ]
+      });
+
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.ontrack = (event) => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', {
+            to: incomingCaller,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      socket.emit('call-answer', {
+        to: incomingCaller,
+        answer: answer
+      });
+
+      setPeerConnection(pc);
+      setCallStatus('connected');
+      setIsInCall(true);
+      setIncomingCaller(null);
+      setIncomingOffer(null);
+
+    } catch (error) {
+      console.error('Error accepting call:', error);
+      alert('Failed to accept call.');
+    }
+  };
+
+  const rejectCall = () => {
+    if (socket && incomingCaller) {
+      socket.emit('call-reject', { to: incomingCaller });
+    }
+    setIncomingCaller(null);
+    setIncomingOffer(null);
+    setCallStatus('idle');
+    setCallType(null);
+  };
+
+  const endRealCall = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => track.stop());
+      setRemoteStream(null);
+    }
+
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
+    }
+
+    if (socket && activeContact) {
+      socket.emit('call-hangup', { to: activeContact.phoneNumber });
+    }
+
+    setIsInCall(false);
+    setIsCalling(false);
+    setCallStatus('idle');
+    setCallType(null);
+    setIncomingCaller(null);
+    setIncomingOffer(null);
+  };
+
+  // Main call handler
+  const handleCall = (type: 'voice' | 'video') => {
+    if (!activeContact) return;
+    startRealCall(type);
+  };
+
+  // ========== EXISTING FUNCTIONS ==========
+
   const handleSendMessage = async (e?: React.FormEvent | any) => {
     if (e && e.preventDefault) {
       e.preventDefault();
@@ -350,7 +602,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
 
     if (!fullMessage || !activeContact) return;
 
-    // Create optimistic message
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
       sender: currentUser.phoneNumber,
@@ -362,7 +613,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       read: false
     };
 
-    // Add to messages immediately (optimistic update)
     setMessages(prev => [optimisticMessage, ...prev]);
     setMessageText('');
     setAttachedFiles([]);
@@ -380,7 +630,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       });
     } catch (err) {
       console.error("Failed to send message", err);
-      // Remove optimistic message on failure
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
       alert('❌ Failed to send message. Please try again.');
     }
@@ -484,7 +733,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
     setShowEmojiPicker(!showEmojiPicker);
   };
 
-  // File attachment
   const handleFileAttach = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -513,13 +761,9 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
     setMessageText(fileNames ? `${textBeforeFiles} ${fileNames}` : textBeforeFiles);
   };
 
-  // REAL FILE DOWNLOAD - downloads the actual file
   const handleDownloadFile = (fileName: string) => {
-    // Check if we have the file URL stored
     const fileUrl = uploadedFileUrls.get(fileName);
-
     if (fileUrl) {
-      // Download the actual file using the stored URL
       const link = document.createElement('a');
       link.href = fileUrl;
       link.download = fileName;
@@ -527,7 +771,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       link.click();
       document.body.removeChild(link);
     } else {
-      // If URL not found, try to find the file in attachedFiles
       const file = attachedFiles.find(f => f.name === fileName);
       if (file) {
         const url = URL.createObjectURL(file);
@@ -542,63 +785,6 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
         alert(`📄 File "${fileName}" is no longer available. Please request it again.`);
       }
     }
-  };
-
-  // REAL CALL FUNCTION - with full UI feedback
-  const startCall = (type: 'voice' | 'video') => {
-    if (!activeContact) return;
-
-    setCallType(type);
-    setIsCalling(true);
-
-    // Show calling status
-    const message = type === 'voice'
-      ? `📞 Calling ${activeContact.fullName}...`
-      : `📹 Video calling ${activeContact.fullName}...`;
-
-    alert(message);
-
-    // Simulate call connection after 3 seconds
-    setTimeout(() => {
-      setIsCalling(false);
-      setIsInCall(true);
-
-      const connectedMessage = type === 'voice'
-        ? `📞 Connected to ${activeContact.fullName}`
-        : `📹 Video connected to ${activeContact.fullName}`;
-
-      alert(connectedMessage);
-
-      // Auto hangup after 30 seconds for demo
-      setTimeout(() => {
-        if (isInCall) {
-          endCall();
-        }
-      }, 30000);
-    }, 3000);
-  };
-
-  const endCall = () => {
-    setIsInCall(false);
-    setIsCalling(false);
-    setCallType(null);
-    setIsMuted(false);
-    setIsSpeakerOn(true);
-    alert('📞 Call ended');
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  const toggleSpeaker = () => {
-    setIsSpeakerOn(!isSpeakerOn);
-  };
-
-  const formatCallTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   // Settings
@@ -640,10 +826,18 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
     return matches.map(m => m[1]);
   };
 
+  const formatCallTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // ========== RENDER ==========
+
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col">
 
-      {/* TOP HEADER - Digaf Brand */}
+      {/* TOP HEADER */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200/80 shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#8B5CF6] flex items-center justify-center text-white font-black text-lg shadow-lg shadow-[#8B5CF6]/30">
@@ -683,35 +877,22 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
         </div>
       </div>
 
-      {/* MAIN CONTENT - Full height */}
+      {/* MAIN CONTENT */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT SIDEBAR - Navigation */}
+        {/* LEFT SIDEBAR */}
         <div className="w-20 bg-slate-50/80 border-r border-slate-200/60 flex flex-col items-center py-4 shrink-0">
           <div className="flex flex-col items-center gap-2 flex-1">
-            <button
-              onClick={() => setActiveTab('chats')}
-              className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'chats' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`}
-              title="Chats"
-            >
+            <button onClick={() => setActiveTab('chats')} className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'chats' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`} title="Chats">
               <MessageCircle className="w-6 h-6" />
             </button>
-            <button
-              onClick={() => setActiveTab('contacts')}
-              className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'contacts' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`}
-              title="Contacts"
-            >
+            <button onClick={() => setActiveTab('contacts')} className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'contacts' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`} title="Contacts">
               <UsersIcon className="w-6 h-6" />
             </button>
-            <button
-              onClick={() => setActiveTab('groups')}
-              className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'groups' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`}
-              title="Groups"
-            >
+            <button onClick={() => setActiveTab('groups')} className={`p-3 rounded-xl transition-all cursor-pointer ${activeTab === 'groups' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/30' : 'text-slate-400 hover:bg-slate-200'}`} title="Groups">
               <Users className="w-6 h-6" />
             </button>
           </div>
-
           <div className="w-10 h-10 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center text-[#8B5CF6] font-black text-sm border-2 border-[#8B5CF6]/30">
             {getInitials(currentUser.fullName)}
           </div>
@@ -719,109 +900,51 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
 
         {/* MIDDLE PANEL - Contact List */}
         <div className="w-[380px] min-w-[340px] max-w-[420px] border-r border-slate-200/60 flex flex-col bg-white">
-          {/* Header */}
           <div className="px-4 py-3 border-b border-slate-200/60 bg-white/50 shrink-0">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-base font-black text-slate-800">
-                {activeTab === 'chats' ? 'Messages' : activeTab === 'contacts' ? 'Contacts' : 'Groups'}
-              </h2>
-              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                {filteredContacts.length}
-              </span>
+              <h2 className="text-base font-black text-slate-800">{activeTab === 'chats' ? 'Messages' : activeTab === 'contacts' ? 'Contacts' : 'Groups'}</h2>
+              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{filteredContacts.length}</span>
             </div>
             <div className="relative">
-              <input
-                type="text"
-                placeholder={`Search ${activeTab}...`}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-sm pl-9 pr-3 py-2.5 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-[#8B5CF6]/30 focus:border-[#8B5CF6] transition-all"
-              />
+              <input type="text" placeholder={`Search ${activeTab}...`} value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm pl-9 pr-3 py-2.5 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-[#8B5CF6]/30 focus:border-[#8B5CF6] transition-all" />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             </div>
           </div>
 
-          {/* Contact List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {filteredContacts.length === 0 ? (
-              <div className="p-8 text-center">
-                <UserIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-bold text-slate-400">No {activeTab} found</p>
-              </div>
+              <div className="p-8 text-center"><UserIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-sm font-bold text-slate-400">No {activeTab} found</p></div>
             ) : (
               filteredContacts.map((contact) => {
                 const contactId = contact.isGroup ? contact.id : contact.phoneNumber;
                 const ucount = unreadCounterMap[contactId] || 0;
                 const meta = conversationMetaMap[contactId];
-                const isSelected = activeContact?.phoneNumber === contactId ||
-                  (activeContact?.isGroup && activeContact.id === contactId);
+                const isSelected = activeContact?.phoneNumber === contactId || (activeContact?.isGroup && activeContact.id === contactId);
                 const avatarColor = getAvatarColor(contact.fullName || 'Unknown');
 
                 return (
-                  <button
-                    key={contactId}
-                    onClick={() => setActiveContact(contact)}
-                    className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer group ${isSelected
-                        ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/20'
-                        : 'bg-transparent hover:bg-slate-50'
-                      }`}
-                  >
+                  <button key={contactId} onClick={() => setActiveContact(contact)} className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 cursor-pointer group ${isSelected ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/20' : 'bg-transparent hover:bg-slate-50'}`}>
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-base shrink-0 font-mono text-white ${avatarColor}`}>
                       {contact.isGroup ? '👥' : getInitials(contact.fullName || '')}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-1">
-                        <span className={`text-sm font-extrabold truncate ${isSelected ? 'text-white' : 'text-slate-800'}`}>
-                          {contact.fullName}
-                          {contact.isGroup && (
-                            <span className="text-[9px] font-normal ml-1 opacity-60">(Group)</span>
-                          )}
-                        </span>
-                        {meta && (
-                          <span className={`text-[8px] font-bold shrink-0 font-mono ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>
-                            {meta.time}
-                          </span>
-                        )}
+                        <span className={`text-sm font-extrabold truncate ${isSelected ? 'text-white' : 'text-slate-800'}`}>{contact.fullName}{contact.isGroup && <span className="text-[9px] font-normal ml-1 opacity-60">(Group)</span>}</span>
+                        {meta && <span className={`text-[8px] font-bold shrink-0 font-mono ${isSelected ? 'text-white/60' : 'text-slate-400'}`}>{meta.time}</span>}
                       </div>
-                      <div className={`text-[8px] font-black uppercase tracking-wider font-mono truncate ${isSelected ? 'text-white/50' : 'text-slate-400'}`}>
-                        {contact.isGroup ? `${contact.members?.length || 0} members` : (contact.customRole || contact.role || 'Staff')}
-                      </div>
-                      {meta ? (
-                        <p className={`text-xs truncate mt-0.5 font-medium ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
-                          {meta.content}
-                        </p>
-                      ) : (
-                        <p className={`text-[10px] italic truncate mt-0.5 font-medium ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>
-                          No messages yet
-                        </p>
-                      )}
+                      <div className={`text-[8px] font-black uppercase tracking-wider font-mono truncate ${isSelected ? 'text-white/50' : 'text-slate-400'}`}>{contact.isGroup ? `${contact.members?.length || 0} members` : (contact.customRole || contact.role || 'Staff')}</div>
+                      {meta ? <p className={`text-xs truncate mt-0.5 font-medium ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>{meta.content}</p> : <p className={`text-[10px] italic truncate mt-0.5 font-medium ${isSelected ? 'text-white/40' : 'text-slate-400'}`}>No messages yet</p>}
                     </div>
-
-                    {ucount > 0 && (
-                      <span className={`h-5 min-w-5 px-1.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 font-mono animate-pulse ${isSelected
-                          ? 'bg-white text-[#8B5CF6]'
-                          : 'bg-rose-500 text-white'
-                        }`}>
-                        {ucount}
-                      </span>
-                    )}
+                    {ucount > 0 && <span className={`h-5 min-w-5 px-1.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0 font-mono animate-pulse ${isSelected ? 'bg-white text-[#8B5CF6]' : 'bg-rose-500 text-white'}`}>{ucount}</span>}
                   </button>
                 );
               })
             )}
           </div>
 
-          {/* New Group Button */}
           {isAdmin && activeTab === 'groups' && (
             <div className="p-2 border-t border-slate-200/60 bg-white/50 shrink-0">
-              <button
-                onClick={() => setShowGroupModal(true)}
-                className="w-full py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-lg transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Create New Group
-              </button>
+              <button onClick={() => setShowGroupModal(true)} className="w-full py-2.5 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase rounded-lg transition-all shadow-sm flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Create New Group</button>
             </div>
           )}
         </div>
@@ -830,46 +953,20 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
         <div className="flex-1 flex flex-col bg-white">
           {activeContact ? (
             <>
-              {/* Chat Header */}
               <div className="px-6 py-3 border-b border-slate-200/60 bg-white/90 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-base text-white ${getAvatarColor(activeContact.fullName || '')}`}>
                     {activeContact.isGroup ? '👥' : getInitials(activeContact.fullName || '')}
                   </div>
                   <div>
-                    <h4 className="text-base font-black text-slate-800 tracking-tight leading-none">
-                      {activeContact.fullName}
-                      {activeContact.isGroup && (
-                        <span className="text-[9px] font-normal ml-1 text-slate-400">(Group)</span>
-                      )}
-                    </h4>
-                    <p className="text-[9px] text-slate-400 uppercase tracking-wider font-mono mt-0.5 leading-none">
-                      {activeContact.isGroup ? `${activeContact.members?.length || 0} members` : (activeContact.customRole || activeContact.role || 'Staff')}
-                    </p>
+                    <h4 className="text-base font-black text-slate-800 tracking-tight leading-none">{activeContact.fullName}{activeContact.isGroup && <span className="text-[9px] font-normal ml-1 text-slate-400">(Group)</span>}</h4>
+                    <p className="text-[9px] text-slate-400 uppercase tracking-wider font-mono mt-0.5 leading-none">{activeContact.isGroup ? `${activeContact.members?.length || 0} members` : (activeContact.customRole || activeContact.role || 'Staff')}</p>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => startCall('voice')}
-                    className="p-2 hover:bg-emerald-50 rounded-lg transition-all text-slate-500 hover:text-emerald-600"
-                    title="Voice Call"
-                    disabled={isCalling || isInCall}
-                  >
-                    <Phone className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => startCall('video')}
-                    className="p-2 hover:bg-[#8B5CF6]/10 rounded-lg transition-all text-slate-500 hover:text-[#8B5CF6]"
-                    title="Video Call"
-                    disabled={isCalling || isInCall}
-                  >
-                    <Video className="w-4 h-4" />
-                  </button>
-                  <div className="flex items-center gap-1 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-emerald-100/60">
-                    <Shield className="w-3 h-3 text-emerald-600" />
-                    <span className="hidden sm:inline">Secure</span>
-                  </div>
+                  <button onClick={() => handleCall('voice')} className="p-2 hover:bg-emerald-50 rounded-lg transition-all text-slate-500 hover:text-emerald-600" title="Voice Call" disabled={isCalling || isInCall}><Phone className="w-4 h-4" /></button>
+                  <button onClick={() => handleCall('video')} className="p-2 hover:bg-[#8B5CF6]/10 rounded-lg transition-all text-slate-500 hover:text-[#8B5CF6]" title="Video Call" disabled={isCalling || isInCall}><Video className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-1 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-emerald-100/60"><Shield className="w-3 h-3 text-emerald-600" /><span className="hidden sm:inline">Secure</span></div>
                 </div>
               </div>
 
@@ -877,15 +974,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
               <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-slate-50/20">
                 {activeConversationMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                    <div className="p-6 bg-[#8B5CF6]/5 border border-[#8B5CF6]/10 rounded-full">
-                      <MessageSquare className="w-10 h-10 text-[#8B5CF6]" />
-                    </div>
-                    <div>
-                      <p className="text-base font-black text-slate-700">Secure Channel Open</p>
-                      <p className="text-sm text-slate-400 font-medium max-w-xs">
-                        Send your first message to {activeContact.fullName?.split(' ')[0] || 'this contact'}.
-                      </p>
-                    </div>
+                    <div className="p-6 bg-[#8B5CF6]/5 border border-[#8B5CF6]/10 rounded-full"><MessageSquare className="w-10 h-10 text-[#8B5CF6]" /></div>
+                    <div><p className="text-base font-black text-slate-700">Secure Channel Open</p><p className="text-sm text-slate-400 font-medium max-w-xs">Send your first message to {activeContact.fullName?.split(' ')[0] || 'this contact'}.</p></div>
                   </div>
                 ) : (
                   activeConversationMessages.map((msg, index) => {
@@ -895,46 +985,20 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                     const fileAttachments = getFileAttachments(msg.content);
 
                     return (
-                      <div
-                        key={msg.id}
-                        className={`flex ${isSender ? 'justify-end' : 'justify-start'} items-end gap-2`}
-                      >
-                        {!isSender && showAvatar && (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 ${getAvatarColor(activeContact.fullName || '')}`}>
-                            {getInitials(activeContact.fullName || '')}
-                          </div>
-                        )}
+                      <div key={msg.id} className={`flex ${isSender ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                        {!isSender && showAvatar && <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 ${getAvatarColor(activeContact.fullName || '')}`}>{getInitials(activeContact.fullName || '')}</div>}
                         {!isSender && !showAvatar && <div className="w-8 shrink-0" />}
-
                         <div className={`flex flex-col ${isSender ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                          {!isSender && showAvatar && (
-                            <span className="text-[8px] font-bold text-slate-500 mb-0.5 ml-1">
-                              {sender?.fullName?.split(' ')[0] || 'User'}
-                            </span>
-                          )}
-                          <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${isSender
-                              ? 'bg-[#8B5CF6] text-white rounded-br-none'
-                              : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
-                            }`}>
+                          {!isSender && showAvatar && <span className="text-[8px] font-bold text-slate-500 mb-0.5 ml-1">{sender?.fullName?.split(' ')[0] || 'User'}</span>}
+                          <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${isSender ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'}`}>
                             <span>{msg.content}</span>
-
-                            {/* Show file attachments with REAL download */}
                             {fileAttachments.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {fileAttachments.map((fileName, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center gap-2 bg-slate-100/50 rounded-lg px-2 py-1"
-                                  >
+                                  <div key={idx} className="flex items-center gap-2 bg-slate-100/50 rounded-lg px-2 py-1">
                                     {getFileIcon(fileName)}
                                     <span className="text-xs font-medium truncate max-w-[120px]">{fileName}</span>
-                                    <button
-                                      onClick={() => handleDownloadFile(fileName)}
-                                      className="p-1 hover:bg-slate-200 rounded transition-all text-slate-500 hover:text-[#8B5CF6]"
-                                      title="Download file"
-                                    >
-                                      <Download className="w-3 h-3" />
-                                    </button>
+                                    <button onClick={() => handleDownloadFile(fileName)} className="p-1 hover:bg-slate-200 rounded transition-all text-slate-500 hover:text-[#8B5CF6]" title="Download file"><Download className="w-3 h-3" /></button>
                                   </div>
                                 ))}
                               </div>
@@ -942,21 +1006,8 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
                           </div>
                           <div className="flex items-center gap-1.5 text-[8px] font-bold text-slate-400 font-mono tracking-wide px-1 mt-0.5">
                             <span>{formatMessageTime(msg.createdAt)}</span>
-                            {isSender && (
-                              msg.read ? (
-                                <CheckCheck className="w-3 h-3 text-sky-500" />
-                              ) : (
-                                <Check className="w-2.5 h-2.5 text-slate-300" />
-                              )
-                            )}
-                            {isSender && (
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="p-0.5 hover:bg-slate-100 rounded transition-all text-slate-400 hover:text-rose-500"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
+                            {isSender && (msg.read ? <CheckCheck className="w-3 h-3 text-sky-500" /> : <Check className="w-2.5 h-2.5 text-slate-300" />)}
+                            {isSender && <button onClick={() => handleDeleteMessage(msg.id)} className="p-0.5 hover:bg-slate-100 rounded transition-all text-slate-400 hover:text-rose-500"><Trash2 className="w-3 h-3" /></button>}
                           </div>
                         </div>
                       </div>
@@ -967,111 +1018,39 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
               </div>
 
               {/* Message Input */}
-              <form
-                onSubmit={handleSendMessage}
-                className="px-6 py-3 bg-white/90 border-t border-slate-200/60 shrink-0"
-              >
+              <form onSubmit={handleSendMessage} className="px-6 py-3 bg-white/90 border-t border-slate-200/60 shrink-0">
                 <div className="flex items-center gap-2 relative">
-                  <button
-                    type="button"
-                    onClick={toggleEmojiPicker}
-                    className="emoji-button p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600"
-                    title="Add emoji"
-                  >
-                    <Smile className="w-5 h-5" />
-                  </button>
-
-                  {/* Emoji Picker Popup */}
+                  <button type="button" onClick={toggleEmojiPicker} className="emoji-button p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600" title="Add emoji"><Smile className="w-5 h-5" /></button>
                   {showEmojiPicker && (
                     <div className="emoji-picker-container absolute bottom-full left-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl w-[350px] max-h-[350px] overflow-hidden z-50">
                       <div className="flex gap-1 p-2 border-b border-slate-100 overflow-x-auto">
                         {EMOJI_CATEGORIES.map((category, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setSelectedCategory(index)}
-                            className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all whitespace-nowrap ${selectedCategory === index
-                                ? 'bg-[#8B5CF6] text-white'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                              }`}
-                          >
-                            {category.name}
-                          </button>
+                          <button key={index} onClick={() => setSelectedCategory(index)} className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all whitespace-nowrap ${selectedCategory === index ? 'bg-[#8B5CF6] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{category.name}</button>
                         ))}
                       </div>
                       <div className="p-2 overflow-y-auto max-h-[250px]">
                         <div className="grid grid-cols-8 gap-1">
                           {EMOJI_CATEGORIES[selectedCategory].emojis.map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => handleEmojiClick(emoji)}
-                              className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-xl hover:scale-110"
-                            >
-                              {emoji}
-                            </button>
+                            <button key={emoji} type="button" onClick={() => handleEmojiClick(emoji)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-xl hover:scale-110">{emoji}</button>
                           ))}
                         </div>
                       </div>
                     </div>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={handleFileAttach}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600"
-                    title="Attach file"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.mp3,.mp4"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-
+                  <button type="button" onClick={handleFileAttach} className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600" title="Attach file"><Paperclip className="w-5 h-5" /></button>
+                  <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.mp3,.mp4" onChange={handleFileSelect} className="hidden" />
                   <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      placeholder="Send a message..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#8B5CF6]/30 text-slate-800 pr-14 transition-all"
-                    />
-                    <div className="absolute right-3 top-2.5 hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-[7px] text-slate-400 font-mono font-black border border-slate-200">
-                      <CornerDownLeft className="w-2.5 h-2.5" />
-                      ENTER
-                    </div>
+                    <input type="text" placeholder="Send a message..." value={messageText} onChange={(e) => setMessageText(e.target.value)} onKeyDown={handleKeyDown} className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#8B5CF6]/30 text-slate-800 pr-14 transition-all" />
+                    <div className="absolute right-3 top-2.5 hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-[7px] text-slate-400 font-mono font-black border border-slate-200"><CornerDownLeft className="w-2.5 h-2.5" /> ENTER</div>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={!messageText.trim() && attachedFiles.length === 0}
-                    className={`p-3 rounded-xl transition-all shadow-sm shrink-0 flex items-center justify-center cursor-pointer ${messageText.trim() || attachedFiles.length > 0
-                        ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] active:scale-95 shadow-md shadow-[#8B5CF6]/25'
-                        : 'bg-slate-100 text-slate-400 border border-slate-200'
-                      }`}
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
+                  <button type="submit" disabled={!messageText.trim() && attachedFiles.length === 0} className={`p-3 rounded-xl transition-all shadow-sm shrink-0 flex items-center justify-center cursor-pointer ${messageText.trim() || attachedFiles.length > 0 ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] active:scale-95 shadow-md shadow-[#8B5CF6]/25' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}><Send className="w-5 h-5" /></button>
                 </div>
-                {/* Show attached files */}
                 {attachedFiles.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {attachedFiles.map((file, index) => (
                       <div key={index} className="flex items-center gap-1 bg-slate-100 rounded-lg px-2 py-1 text-xs">
-                        {getFileIcon(file.name)}
-                        <span className="truncate max-w-[100px]">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeAttachedFile(index)}
-                          className="text-slate-400 hover:text-rose-500"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                        {getFileIcon(file.name)}<span className="truncate max-w-[100px]">{file.name}</span>
+                        <button type="button" onClick={() => removeAttachedFile(index)} className="text-slate-400 hover:text-rose-500"><X className="w-3 h-3" /></button>
                       </div>
                     ))}
                   </div>
@@ -1080,24 +1059,9 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-10 space-y-5">
-              <div className="p-6 bg-[#8B5CF6]/5 border border-[#8B5CF6]/10 rounded-full">
-                <MessageSquare className="w-12 h-12 text-[#8B5CF6]" />
-              </div>
-              <div>
-                <h4 className="text-xl font-black text-slate-800 tracking-tight">Digaf Staff Chat</h4>
-                <p className="text-sm text-slate-500 font-medium max-w-sm">
-                  Select a contact from the list to start a secure conversation.
-                </p>
-              </div>
-              {isAdmin && (
-                <button
-                  onClick={() => setShowGroupModal(true)}
-                  className="mt-1 px-6 py-3 bg-[#8B5CF6] text-white text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#7C3AED] transition-all shadow-md shadow-[#8B5CF6]/20 flex items-center gap-2"
-                >
-                  <Users className="w-4 h-4" />
-                  Create Group Chat
-                </button>
-              )}
+              <div className="p-6 bg-[#8B5CF6]/5 border border-[#8B5CF6]/10 rounded-full"><MessageSquare className="w-12 h-12 text-[#8B5CF6]" /></div>
+              <div><h4 className="text-xl font-black text-slate-800 tracking-tight">Digaf Staff Chat</h4><p className="text-sm text-slate-500 font-medium max-w-sm">Select a contact from the list to start a secure conversation.</p></div>
+              {isAdmin && <button onClick={() => setShowGroupModal(true)} className="mt-1 px-6 py-3 bg-[#8B5CF6] text-white text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#7C3AED] transition-all shadow-md shadow-[#8B5CF6]/20 flex items-center gap-2"><Users className="w-4 h-4" /> Create Group Chat</button>}
             </div>
           )}
         </div>
@@ -1107,134 +1071,76 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       {showGroupModal && isAdmin && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-2.5">
-                <Users className="w-5 h-5 text-[#8B5CF6]" />
-                Create Group Chat
-              </h3>
-              <button onClick={() => setShowGroupModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
+            <div className="flex items-center justify-between mb-5"><h3 className="text-base font-black text-slate-800 flex items-center gap-2.5"><Users className="w-5 h-5 text-[#8B5CF6]" /> Create Group Chat</h3><button onClick={() => setShowGroupModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all"><X className="w-5 h-5 text-slate-500" /></button></div>
             <div className="space-y-5">
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1.5">Group Name</label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="e.g. Renewal Team"
-                  className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-2">
-                  Select Members <span className="text-slate-400 font-normal">({selectedMembers.length} selected)</span>
-                </label>
+              <div><label className="text-xs font-bold text-slate-600 block mb-1.5">Group Name</label><input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Renewal Team" className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] transition-all" /></div>
+              <div><label className="text-xs font-bold text-slate-600 block mb-2">Select Members <span className="text-slate-400 font-normal">({selectedMembers.length} selected)</span></label>
                 <div className="max-h-52 overflow-y-auto space-y-1 border border-slate-200 rounded-xl p-2.5">
                   {users.map(user => (
-                    <button
-                      key={user.phoneNumber}
-                      onClick={() => toggleMember(user.phoneNumber)}
-                      className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer ${selectedMembers.includes(user.phoneNumber)
-                          ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30'
-                          : 'hover:bg-slate-50'
-                        }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[9px] text-white ${getAvatarColor(user.fullName)}`}>
-                        {getInitials(user.fullName)}
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs font-bold text-slate-800 block">{user.fullName}</span>
-                        <span className="text-[8px] text-slate-400">{user.customRole || user.role}</span>
-                      </div>
-                      {selectedMembers.includes(user.phoneNumber) && (
-                        <Check className="w-4 h-4 text-[#8B5CF6]" />
-                      )}
+                    <button key={user.phoneNumber} onClick={() => toggleMember(user.phoneNumber)} className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer ${selectedMembers.includes(user.phoneNumber) ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30' : 'hover:bg-slate-50'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[9px] text-white ${getAvatarColor(user.fullName)}`}>{getInitials(user.fullName)}</div>
+                      <div className="flex-1"><span className="text-xs font-bold text-slate-800 block">{user.fullName}</span><span className="text-[8px] text-slate-400">{user.customRole || user.role}</span></div>
+                      {selectedMembers.includes(user.phoneNumber) && <Check className="w-4 h-4 text-[#8B5CF6]" />}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <button
-                onClick={handleCreateGroup}
-                disabled={!groupName.trim() || selectedMembers.length < 2}
-                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${groupName.trim() && selectedMembers.length >= 2
-                    ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md shadow-[#8B5CF6]/20'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  }`}
-              >
-                Create Group ({selectedMembers.length} members)
-              </button>
-
-              <p className="text-[8px] text-slate-400 text-center font-medium">
-                <Crown className="w-3 h-3 inline text-amber-500 mr-1" />
-                Only administrators can create group chats
-              </p>
+              <button onClick={handleCreateGroup} disabled={!groupName.trim() || selectedMembers.length < 2} className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${groupName.trim() && selectedMembers.length >= 2 ? 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md shadow-[#8B5CF6]/20' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>Create Group ({selectedMembers.length} members)</button>
+              <p className="text-[8px] text-slate-400 text-center font-medium"><Crown className="w-3 h-3 inline text-amber-500 mr-1" /> Only administrators can create group chats</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* SETTINGS MODAL - No dark mode */}
+      {/* SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-2.5">
-                <Settings className="w-5 h-5 text-[#8B5CF6]" />
-                Chat Settings
-              </h3>
-              <button onClick={() => setShowSettingsModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
+            <div className="flex items-center justify-between mb-5"><h3 className="text-base font-black text-slate-800 flex items-center gap-2.5"><Settings className="w-5 h-5 text-[#8B5CF6]" /> Chat Settings</h3><button onClick={() => setShowSettingsModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-all"><X className="w-5 h-5 text-slate-500" /></button></div>
             <div className="space-y-5">
-              {/* Notifications */}
-              <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                <div>
-                  <span className="text-sm font-bold text-slate-800 block">🔔 Notifications</span>
-                  <span className="text-xs text-slate-400">Show desktop notifications</span>
-                </div>
-                <button
-                  onClick={() => setSettingsNotifications(!settingsNotifications)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${settingsNotifications
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-slate-100 text-slate-400'
-                    }`}
-                >
-                  {settingsNotifications ? 'ON' : 'OFF'}
-                </button>
-              </div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100"><div><span className="text-sm font-bold text-slate-800 block">🔔 Notifications</span><span className="text-xs text-slate-400">Show desktop notifications</span></div><button onClick={() => setSettingsNotifications(!settingsNotifications)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${settingsNotifications ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{settingsNotifications ? 'ON' : 'OFF'}</button></div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100"><div><span className="text-sm font-bold text-slate-800 block">🔊 Sound</span><span className="text-xs text-slate-400">Play sound for messages</span></div><button onClick={() => setSettingsSound(!settingsSound)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${settingsSound ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{settingsSound ? 'ON' : 'OFF'}</button></div>
+              <button onClick={handleSaveSettings} className="w-full py-3 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-[#8B5CF6]/20">💾 Save Settings</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Sound */}
-              <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                <div>
-                  <span className="text-sm font-bold text-slate-800 block">🔊 Sound</span>
-                  <span className="text-xs text-slate-400">Play sound for messages</span>
-                </div>
-                <button
-                  onClick={() => setSettingsSound(!settingsSound)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${settingsSound
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-slate-100 text-slate-400'
-                    }`}
-                >
-                  {settingsSound ? 'ON' : 'OFF'}
-                </button>
-              </div>
-
-              {/* Save Button */}
-              <button
-                onClick={handleSaveSettings}
-                className="w-full py-3 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-[#8B5CF6]/20"
-              >
-                💾 Save Settings
+      {/* INCOMING CALL OVERLAY */}
+      {callStatus === 'incoming' && incomingCaller && (
+        <div className="fixed inset-0 bg-gradient-to-b from-slate-900 to-slate-800 z-[200] flex flex-col items-center justify-center animate-fade-in">
+          <div className="text-center space-y-6">
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl text-white mx-auto animate-pulse ${callType === 'voice' ? 'bg-emerald-500' : 'bg-[#8B5CF6]'}`}>
+              {callType === 'voice' ? <PhoneCall className="w-14 h-14" /> : <VideoIcon className="w-14 h-14" />}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-white">{incomingCaller}</h3>
+              <p className="text-slate-400 text-sm mt-1">{callType === 'voice' ? 'Incoming Voice Call...' : 'Incoming Video Call...'}</p>
+            </div>
+            <div className="flex items-center gap-6 mt-8">
+              <button onClick={acceptCall} className="p-4 rounded-full bg-emerald-500 hover:bg-emerald-600 transition-all text-white shadow-lg shadow-emerald-500/30">
+                <Phone className="w-8 h-8" />
+              </button>
+              <button onClick={rejectCall} className="p-4 rounded-full bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/30">
+                <PhoneOff className="w-8 h-8" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CALLING OVERLAY */}
+      {isCalling && callStatus === 'calling' && (
+        <div className="fixed inset-0 bg-gradient-to-b from-slate-900 to-slate-800 z-[200] flex flex-col items-center justify-center animate-fade-in">
+          <div className="text-center space-y-6">
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl text-white mx-auto animate-pulse ${callType === 'voice' ? 'bg-emerald-500' : 'bg-[#8B5CF6]'}`}>
+              {callType === 'voice' ? <PhoneCall className="w-14 h-14" /> : <VideoIcon className="w-14 h-14" />}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-white">{activeContact?.fullName}</h3>
+              <p className="text-slate-400 text-sm mt-1">{callType === 'voice' ? 'Calling...' : 'Video Calling...'}</p>
+            </div>
+            <button onClick={() => { setIsCalling(false); setCallStatus('idle'); setCallType(null); }} className="p-4 rounded-full bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/30"><PhoneOff className="w-8 h-8" /></button>
           </div>
         </div>
       )}
@@ -1243,80 +1149,19 @@ export default function ChatRoom({ currentUser }: ChatRoomProps) {
       {isInCall && (
         <div className="fixed inset-0 bg-gradient-to-b from-slate-900 to-slate-800 z-[200] flex flex-col items-center justify-center animate-fade-in">
           <div className="text-center space-y-6">
-            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl text-white mx-auto ${callType === 'voice' ? 'bg-emerald-500' : 'bg-[#8B5CF6]'
-              }`}>
-              {callType === 'voice' ? (
-                <PhoneCall className="w-14 h-14" />
-              ) : (
-                <VideoIcon className="w-14 h-14" />
-              )}
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl text-white mx-auto ${callType === 'voice' ? 'bg-emerald-500' : 'bg-[#8B5CF6]'}`}>
+              {callType === 'voice' ? <PhoneCall className="w-14 h-14" /> : <VideoIcon className="w-14 h-14" />}
             </div>
-
             <div>
               <h3 className="text-2xl font-black text-white">{activeContact?.fullName}</h3>
-              <p className="text-slate-400 text-sm mt-1">
-                {callType === 'voice' ? 'Voice Call' : 'Video Call'}
-              </p>
-              <p className="text-emerald-400 text-sm font-mono mt-2">
-                {formatCallTime(callTimer)}
-              </p>
+              <p className="text-slate-400 text-sm mt-1">{callType === 'voice' ? 'Voice Call' : 'Video Call'}</p>
+              <p className="text-emerald-400 text-sm font-mono mt-2">{formatCallTime(callTimer)}</p>
             </div>
-
             <div className="flex items-center gap-6 mt-8">
-              <button
-                onClick={toggleMute}
-                className="p-4 rounded-full bg-slate-700 hover:bg-slate-600 transition-all text-white"
-              >
-                {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-              </button>
-
-              <button
-                onClick={endCall}
-                className="p-4 rounded-full bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/30"
-              >
-                <PhoneOff className="w-8 h-8" />
-              </button>
-
-              <button
-                onClick={toggleSpeaker}
-                className="p-4 rounded-full bg-slate-700 hover:bg-slate-600 transition-all text-white"
-              >
-                {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-              </button>
+              <button onClick={() => setIsMuted(!isMuted)} className="p-4 rounded-full bg-slate-700 hover:bg-slate-600 transition-all text-white">{isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}</button>
+              <button onClick={endRealCall} className="p-4 rounded-full bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/30"><PhoneOff className="w-8 h-8" /></button>
+              <button onClick={() => setIsSpeakerOn(!isSpeakerOn)} className="p-4 rounded-full bg-slate-700 hover:bg-slate-600 transition-all text-white">{isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* CALLING OVERLAY */}
-      {isCalling && (
-        <div className="fixed inset-0 bg-gradient-to-b from-slate-900 to-slate-800 z-[200] flex flex-col items-center justify-center animate-fade-in">
-          <div className="text-center space-y-6">
-            <div className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl text-white mx-auto animate-pulse ${callType === 'voice' ? 'bg-emerald-500' : 'bg-[#8B5CF6]'
-              }`}>
-              {callType === 'voice' ? (
-                <PhoneCall className="w-14 h-14" />
-              ) : (
-                <VideoIcon className="w-14 h-14" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-2xl font-black text-white">{activeContact?.fullName}</h3>
-              <p className="text-slate-400 text-sm mt-1">
-                {callType === 'voice' ? 'Calling...' : 'Video Calling...'}
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                setIsCalling(false);
-                setCallType(null);
-              }}
-              className="p-4 rounded-full bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/30"
-            >
-              <PhoneOff className="w-8 h-8" />
-            </button>
           </div>
         </div>
       )}
