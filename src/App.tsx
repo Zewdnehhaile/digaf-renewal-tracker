@@ -83,7 +83,9 @@ export default function App() {
   // Authenticated state with automatic remember-me logic
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     localStorage.removeItem('digaf_active_officer');
-    const saved = localStorage.getItem('digaf_remembered_session');
+    // Try localStorage first, then sessionStorage
+    const saved = localStorage.getItem('digaf_remembered_session') ||
+      sessionStorage.getItem('digaf_remembered_session');
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as User;
@@ -361,7 +363,9 @@ export default function App() {
     setCurrentUser(user);
     setInactivityNotice('');
     setLastActivity(Date.now());
-    localStorage.setItem('digaf_remembered_session', JSON.stringify(user));
+    const userJson = JSON.stringify(user);
+    localStorage.setItem('digaf_remembered_session', userJson);
+    sessionStorage.setItem('digaf_remembered_session', userJson);
     const params = new URLSearchParams(window.location.search);
     if (params.get('qrScan') === 'true') {
       setActiveTab('attendance');
