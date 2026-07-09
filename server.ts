@@ -20,7 +20,13 @@ let db: any = null;
 async function connectDB() {
   if (!client) {
     client = new MongoClient(MONGODB_URI, {
-      serverSelectionTimeoutMS: 30000
+      maxPoolSize: 100,
+      minPoolSize: 10,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 60000,
+      retryWrites: true,
     });
     console.log("CONNECTING TO:");
     console.log(MONGODB_URI);

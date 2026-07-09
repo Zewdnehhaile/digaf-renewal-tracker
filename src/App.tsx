@@ -105,7 +105,14 @@ export default function App() {
   // Add this function after setCustomers
   const refreshCustomers = async () => {
     const updated = await dbService.getCustomers();
-    setCustomers(updated);
+
+    setCustomers(
+      [...updated].sort(
+        (a, b) =>
+          new Date(b.addedDate).getTime() -
+          new Date(a.addedDate).getTime()
+      )
+    );
   };
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
@@ -251,7 +258,7 @@ export default function App() {
           }
         }
       }
-      setCustomers(updatedCustomers);
+      setCustomers([...updatedCustomers]);
     });
 
     // Load logs IMMEDIATELY
@@ -318,17 +325,25 @@ export default function App() {
   const secureCustomersForUser = useMemo(() => {
     if (!currentUser) return [];
 
-    // Admins and super admins see everything based on filter
+    const sortedCustomers = [...customers].sort(
+      (a, b) =>
+        new Date(b.addedDate).getTime() -
+        new Date(a.addedDate).getTime()
+    );
+
+    // Admins and Super Admins
     if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
       if (selectedRoundFilter !== 'both') {
-        return customers.filter(c => c.workspace === selectedRoundFilter)
-          .sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+        return sortedCustomers.filter(
+          c => c.workspace === selectedRoundFilter
+        );
       }
-      return customers.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+
+      return sortedCustomers;
     }
 
-    // ALL OTHER USERS see ALL customers, sorted newest first
-    return customers.sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime());
+    // All other users
+    return sortedCustomers;
   }, [customers, currentUser, selectedRoundFilter]);
 
   const statsSummary = {
@@ -1116,7 +1131,7 @@ export default function App() {
 
           {activeTab === 'dashboard' && (
             <DashboardView
-              customers={secureCustomersForUser}
+             customers={[...secureCustomersForUser]}
               logs={logs}
               onNavigate={handleNavigate}
               currentUser={currentUser || undefined}
@@ -1127,6 +1142,7 @@ export default function App() {
 
           {activeTab.startsWith('stage-') && (
             <KanbanBoard
+              key={customers.length}
               customers={secureCustomersForUser}
               focusedStatus={activeTab.replace('stage-', '').replace(/-/g, ' ') as CustomerStatus}
               onAddLog={dbService.logActivity.bind(dbService)}

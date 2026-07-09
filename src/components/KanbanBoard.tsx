@@ -262,6 +262,7 @@ export default function KanbanBoard({
         const blacklistCheck = await dbService.checkBlacklist(nameTrim);
         if (blacklistCheck && blacklistCheck.status === 'Blocked') {
           alert(`⚠️ Customer "${nameTrim}" exists in Blacklist!\n\nReason: ${blacklistCheck.reason}\n\nThis customer cannot be added unless approved by Admin.`);
+          setAddingCustomers(false);
           return;
         }
 
@@ -313,13 +314,16 @@ export default function KanbanBoard({
           blockedCustomers.push(customer.name);
         }
       }
-      if (blockedCustomers.length > 0) {
-        alert(`⚠️ The following customers exist in Blacklist:\n\n${blockedCustomers.join('\n')}\n\nThese customers cannot be added unless approved by Admin.`);
-        // Remove blocked customers from the list
-        const blockedSet = new Set(blockedCustomers);
-        newCustomers = newCustomers.filter(c => !blockedSet.has(c.name));
-        if (newCustomers.length === 0) return;
-      }
+        if (blockedCustomers.length > 0) {
+          alert(`⚠️ The following customers exist in Blacklist:\n\n${blockedCustomers.join('\n')}\n\nThese customers cannot be added unless approved by Admin.`);
+          // Remove blocked customers from the list
+          const blockedSet = new Set(blockedCustomers);
+          newCustomers = newCustomers.filter(c => !blockedSet.has(c.name));
+          if (newCustomers.length === 0) {
+            setAddingCustomers(false);
+            return;
+          }
+        }
     }
 
     if (newCustomers.length === 0) {
@@ -328,6 +332,7 @@ export default function KanbanBoard({
         errorMsg += ` Skipped: ${skippedDuplicates.join(', ')}`;
       }
       alert(errorMsg);
+      setAddingCustomers(false);
       return;
     }
 
@@ -336,14 +341,31 @@ export default function KanbanBoard({
       setCustomers(prev => [...newCustomers, ...prev]);
       setAddingCustomers(false);
       // Then save to database in background
-      await Promise.all(
+      const results = await Promise.allSettled(
         newCustomers.map(cust => dbService.addCustomer(cust))
       );
+
+      // Check which customers failed
+      const failedCustomers = results
+        .map((result, index) => ({ result, index }))
+        .filter(({ result }) => result.status === 'rejected')
+        .map(({ index }) => newCustomers[index]);
+
+      // If any failed, remove only the failed ones from local state
+      if (failedCustomers.length > 0) {
+        const failedIds = new Set(failedCustomers.map(c => c.id));
+        setCustomers(prev => prev.filter(c => !failedIds.has(c.id)));
+        console.error('Failed to add some customers:', failedCustomers);
+      }
 
       setApplicantText('');
       setShowAddForm(false);
 
-      let successMsg = `✅ ${newCustomers.length} applicant(s) added successfully!`;
+      const successCount = newCustomers.length - failedCustomers.length;
+      let successMsg = `✅ ${successCount} applicant(s) added successfully!`;
+      if (failedCustomers.length > 0) {
+        successMsg += `\n\n⚠️ Failed to add ${failedCustomers.length} customer(s).`;
+      }
       if (skippedDuplicates.length > 0) {
         successMsg += `\n\nSkipped duplicates:\n${skippedDuplicates.join('\n')}`;
       }
@@ -401,6 +423,9 @@ export default function KanbanBoard({
 
       console.log('Deleting with ID:', deleteId);
 
+      // Backup customer before deletion
+      const customerBackup = { ...customer };
+
       await dbService.deleteCustomer(deleteId);
       setCustomers(prev => prev.filter(c => c.id !== deleteId && c._id !== deleteId));
       alert('✅ Customer deleted successfully!');
@@ -412,6 +437,8 @@ export default function KanbanBoard({
       }
     } catch (error) {
       console.error('Error deleting:', error);
+      // Restore customer on error
+      setCustomers(prev => [...prev, customerBackup]);
       alert('❌ Failed to delete customer.');
     }
   };
