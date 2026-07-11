@@ -693,7 +693,59 @@ export default function KanbanBoard({
           >
             Today: {todayCount}
           </button>
+          {/* Delete All Completed - Super Admin Only */}
+          {currentUser?.role === 'super_admin' && focusedStatus === 'Completed' && (
+            <button
+              onClick={async () => {
+                if (!confirm('⚠️ ARE YOU SURE?\n\nThis will delete ALL completed customers EXCEPT today\'s completed records.\n\nThis action CANNOT be undone!')) return;
 
+                if (!confirm('⚠️ FINAL CONFIRMATION: Delete ALL completed customers (keeping today\'s)?')) return;
+
+                try {
+                  const response = await fetch('http://localhost:3000/api/customers');
+                  const allCustomers = await response.json();
+
+                  // Get today's date
+                  const today = new Date().toISOString().split('T')[0];
+
+                  // Filter completed customers that are NOT from today
+                  const completedCustomersToDelete = allCustomers.filter(c =>
+                    c.status === 'Completed' &&
+                    c.addedDate?.split('T')[0] !== today &&
+                    c.updatedDate?.split('T')[0] !== today
+                  );
+
+                  if (completedCustomersToDelete.length === 0) {
+                    alert('✅ No completed customers to delete (excluding today).');
+                    return;
+                  }
+
+                  let deletedCount = 0;
+                  for (const customer of completedCustomersToDelete) {
+                    const deleteId = customer.id || customer._id;
+                    if (deleteId) {
+                      const deleteRes = await fetch(`http://localhost:3000/api/customers/${deleteId}`, {
+                        method: 'DELETE'
+                      });
+                      if (deleteRes.ok) {
+                        deletedCount++;
+                      }
+                    }
+                  }
+
+                  alert(`✅ Successfully deleted ${deletedCount} completed customers (excluding today's records).`);
+                  if (onRefresh) await onRefresh();
+                } catch (error) {
+                  console.error('Error deleting completed customers:', error);
+                  alert('❌ Failed to delete completed customers.');
+                }
+              }}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase rounded-xl transition-all cursor-pointer flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete All Completed
+            </button>
+          )}
           {isRenewalProcessingPage && (
             <button
               onClick={() => setShowAddForm(!showAddForm)}
