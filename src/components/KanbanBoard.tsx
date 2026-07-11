@@ -105,6 +105,7 @@ export default function KanbanBoard({
   const [blacklistedCustomers, setBlacklistedCustomers] = useState<Set<string>>(new Set());
   const [addingCustomers, setAddingCustomers] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState<{ show: boolean; customer: Customer | null }>({ show: false, customer: null });
+  const [showDuplicates, setShowDuplicates] = useState(false);
   const activeOfficer = useMemo(() => {
     if (currentUser?.fullName) return currentUser.fullName;
     const remembered = localStorage.getItem('digaf_remembered_session');
@@ -204,7 +205,38 @@ export default function KanbanBoard({
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
   }, [customers, searchQuery, filterType, today]);
+  // Add this after the filteredCustomers useMemo
+  const duplicateGroups = useMemo(() => {
+    // Only show for Completed status
+    if (focusedStatus !== 'Completed') return [];
 
+    // Get today's completed customers
+    const todayCompleted = filteredCustomers.filter(c => {
+      const addedDate = c.addedDate?.split('T')[0] || '';
+      const updatedDate = c.updatedDate?.split('T')[0] || '';
+      return (addedDate === today || updatedDate === today) && c.status === 'Completed';
+    });
+
+    // Group duplicates by name
+    const nameMap = new Map();
+    todayCompleted.forEach(c => {
+      const key = c.name.toLowerCase().trim();
+      if (!nameMap.has(key)) {
+        nameMap.set(key, []);
+      }
+      nameMap.get(key).push(c);
+    });
+
+    // Return only groups with > 1 customer
+    const duplicates: Array<{ name: string; customers: Customer[] }> = [];
+    nameMap.forEach((customers, name) => {
+      if (customers.length > 1) {
+        duplicates.push({ name, customers });
+      }
+    });
+
+    return duplicates;
+  }, [filteredCustomers, focusedStatus, today]);
   // Counts for header - like CompletedLoans
   const totalCount = customers.length;
   const todayCount = customers.filter(c => {
@@ -314,16 +346,16 @@ export default function KanbanBoard({
           blockedCustomers.push(customer.name);
         }
       }
-        if (blockedCustomers.length > 0) {
-          alert(`⚠️ The following customers exist in Blacklist:\n\n${blockedCustomers.join('\n')}\n\nThese customers cannot be added unless approved by Admin.`);
-          // Remove blocked customers from the list
-          const blockedSet = new Set(blockedCustomers);
-          newCustomers = newCustomers.filter(c => !blockedSet.has(c.name));
-          if (newCustomers.length === 0) {
-            setAddingCustomers(false);
-            return;
-          }
+      if (blockedCustomers.length > 0) {
+        alert(`⚠️ The following customers exist in Blacklist:\n\n${blockedCustomers.join('\n')}\n\nThese customers cannot be added unless approved by Admin.`);
+        // Remove blocked customers from the list
+        const blockedSet = new Set(blockedCustomers);
+        newCustomers = newCustomers.filter(c => !blockedSet.has(c.name));
+        if (newCustomers.length === 0) {
+          setAddingCustomers(false);
+          return;
         }
+      }
     }
 
     if (newCustomers.length === 0) {
@@ -428,6 +460,13 @@ export default function KanbanBoard({
 
       await dbService.deleteCustomer(deleteId);
       setCustomers(prev => prev.filter(c => c.id !== deleteId && c._id !== deleteId));
+
+      // After deletion, check if we need to refresh the duplicate list
+      // This will automatically update the duplicate banner
+      if (onRefresh) {
+        await onRefresh();
+      }
+
       alert('✅ Customer deleted successfully!');
 
       // Refresh to update counts
@@ -734,6 +773,97 @@ export default function KanbanBoard({
           className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6] text-sm"
         />
       </div>
+      {/* Duplicate Detection Section - Only for Completed */}
+      {focusedStatus === 'Completed' && duplicateGroups.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+              <h3 className="text-sm font-bold text-amber-800">
+                ⚠️ Duplicate Completed Customers Today ({duplicateGroups.reduce((acc, g) => acc + g.customers.length, 0)} records)
+              </h3>
+            </div>
+            <button
+              onClick={() => {
+                // Use flushSync for immediate UI update
+                flushSync(() => {
+                  setShowDuplicates(!showDuplicates);
+                });
+              }}
+              className="text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors"
+            >
+              {showDuplicates ? 'Hide' : 'Show'} Duplicates
+            </button>
+          </div>
+
+          {showDuplicates && (
+            <div className="space-y-3 mt-2">
+              {duplicateGroups.map((group) => (
+                <div key={group.name} className="bg-white border border-amber-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800">{group.name}</span>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
+                      {group.customers.length} duplicates
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {group.customers.map((customer, idx) => (
+                      <div key={customer.id || customer._id} className="text-xs text-slate-600 flex items-center gap-2">
+                        <span className="text-slate-400">#{idx + 1}</span>
+                        <span className="font-medium">Phone:</span> {customer.phoneNumber}
+                        <span className="text-slate-400">|</span>
+                        <span className="font-medium">Added by:</span> {customer.addedBy}
+                        <span className="text-slate-400">|</span>
+                        <span className="font-medium">Time:</span> {formatDateWithTime(customer.addedDate)}
+                        <button
+                          onClick={() => handleDelete(customer._id || customer.id, customer.name)}
+                          className="ml-auto px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => {
+                    if (confirm('Remove all duplicate records? This will keep one record per name.')) {
+                      duplicateGroups.forEach(group => {
+                        const [keep, ...toDelete] = group.customers;
+                        toDelete.forEach(customer => {
+                          handleDelete(customer._id || customer.id, customer.name);
+                        });
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl transition-colors"
+                >
+                  Clean All Duplicates (Keep First)
+                </button>
+                <button
+                  onClick={() => setShowDuplicates(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add duplicate count indicator in the header */}
+      {focusedStatus === 'Completed' && duplicateGroups.length > 0 && (
+        <div className="text-xs text-slate-500 mb-2">
+          {filteredCustomers.length} completed customers today
+          <span className="ml-2 text-amber-600 font-bold">
+            ⚠️ {duplicateGroups.reduce((acc, g) => acc + g.customers.length, 0)} duplicate records found
+          </span>
+        </div>
+      )}
 
       {/* Customers List */}
       {loading ? (

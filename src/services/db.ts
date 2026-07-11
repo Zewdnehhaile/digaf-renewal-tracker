@@ -1,6 +1,6 @@
 // src/services/db.ts
-const API_BASE_URL = 'https://digaf-api.onrender.com/api';
-//const API_BASE_URL = 'http://localhost:3000/api';
+//const API_BASE_URL = 'https://digaf-api.onrender.com/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 const toArray = (docs: any[]) => docs.map((doc: any) => {
   // If the document has both _id and id, preserve both
   // If it only has _id, use it as id
@@ -113,10 +113,10 @@ export const dbService = {
   // In db.ts, update the subscribeChats function:
   // In src/services/db.ts
   subscribeChats: (callback: (data: any[]) => void) => {
-    
+
     const f = async () => {
       try {
-        
+
         const d = await apiRequest('/chats');
 
         callback(toArray(d));
@@ -128,7 +128,7 @@ export const dbService = {
     f();
     const i = setInterval(f, 5000);
     return () => {
-      
+
       clearInterval(i);
     };
   },
@@ -360,6 +360,19 @@ export const dbService = {
       return null;
     }
   },
+  importGuarantors: async (guarantors: any[]) => {
+    try {
+      const data = await apiRequest('/guarantors/import', {
+        method: 'POST',
+        data: { guarantors }
+      });
+      return data;
+    } catch (error) {
+      console.error('Error importing guarantors:', error);
+      throw error;
+    }
+  },
+
 
   // ==================== NON BORROWERS ====================
 
@@ -400,6 +413,92 @@ export const dbService = {
       console.error('Error deleting non-borrower:', error);
       throw error;
     }
+  },
+  // ==================== ACTIVE LOANS (MINDA) ====================
+
+  getActiveLoans: async () => {
+    try {
+      const data = await apiRequest('/active-loans');
+      return toArray(data);
+    } catch (error) {
+      console.error('Error fetching active loans:', error);
+      return [];
+    }
+  },
+
+  addActiveLoan: async (loan: any) => {
+    try {
+      const data = await apiRequest('/active-loans', {
+        method: 'POST',
+        data: loan
+      });
+      return data;
+    } catch (error) {
+      console.error('Error adding active loan:', error);
+      throw error;
+    }
+  },
+
+  updateActiveLoan: async (id: string, updates: any) => {
+    try {
+      const data = await apiRequest(`/active-loans/${id}`, {
+        method: 'PUT',
+        data: updates
+      });
+      return data;
+    } catch (error) {
+      console.error('Error updating active loan:', error);
+      throw error;
+    }
+  },
+
+  deleteActiveLoan: async (id: string) => {
+    try {
+      const data = await apiRequest(`/active-loans/${id}`, {
+        method: 'DELETE'
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting active loan:', error);
+      throw error;
+    }
+  },
+
+  importActiveLoans: async (loans: any[]) => {
+    try {
+      const data = await apiRequest('/active-loans/import', {
+        method: 'POST',
+        data: { loans }
+      });
+      return data;
+    } catch (error) {
+      console.error('Error importing active loans:', error);
+      throw error;
+    }
+  },
+
+  checkDuplicateActiveLoan: async (phoneNumber: string) => {
+    try {
+      const data = await apiRequest(`/active-loans/check/${encodeURIComponent(phoneNumber)}`);
+      return data;
+    } catch (error) {
+      console.error('Error checking duplicate active loan:', error);
+      return null;
+    }
+  },
+
+  subscribeActiveLoans: (callback: (data: any[]) => void) => {
+    const f = async () => {
+      try {
+        const data = await dbService.getActiveLoans();
+        callback(toArray(data));
+      } catch {
+        callback([]);
+      }
+    };
+    f();
+    const i = setInterval(f, 5000);
+    return () => clearInterval(i);
   },
   subscribeCorrectionRequests: (callback: (data: any[]) => void) => {
     callback([]);

@@ -872,6 +872,26 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
+  app.post('/api/guarantors/import', async (req, res) => {
+    try {
+      const { guarantors } = req.body;
+      if (!Array.isArray(guarantors) || guarantors.length === 0) {
+        return res.status(400).json({ error: 'No guarantors to import' });
+      }
+
+      const now = new Date().toISOString();
+      for (const guarantor of guarantors) {
+        if (!guarantor.id) guarantor.id = `g-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+        if (!guarantor.createdAt) guarantor.createdAt = now;
+        if (!guarantor.updatedAt) guarantor.updatedAt = now;
+      }
+
+      const result = await db.collection('guarantors').insertMany(guarantors);
+      res.json({ count: result.insertedCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================
   // ================ NON BORROWERS =============================
@@ -935,6 +955,7 @@ async function startServer() {
     }
   });
 
+
   // ============================================================
   // ================ EARLY PAYMENT CLOSURE =====================
   // ============================================================
@@ -993,6 +1014,139 @@ async function startServer() {
         return res.status(404).json({ error: 'Record not found' });
       }
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // ================ ACTIVE LOANS (MINDA) ======================
+  // ============================================================
+
+  app.get('/api/active-loans', async (req, res) => {
+    try {
+      const loans = await db.collection('active_loans').find({}).sort({ disbursementDate: -1 }).toArray();
+      res.json(loans);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/active-loans', async (req, res) => {
+    try {
+      const loan = req.body;
+      if (!loan.id) loan.id = `loan-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      if (!loan.createdAt) loan.createdAt = new Date().toISOString();
+      if (!loan.updatedAt) loan.updatedAt = new Date().toISOString();
+      if (!loan.status) loan.status = 'Active';
+
+      // Calculate expiry date from disbursementDate + loanPeriod
+      if (loan.disbursementDate && loan.loanPeriod) {
+        const months = parseInt(loan.loanPeriod);
+        if (!isNaN(months)) {
+          const date = new Date(loan.disbursementDate);
+          date.setMonth(date.getMonth() + months);
+          loan.expiryDate = date.toISOString().split('T')[0];
+        }
+      }
+
+      const result = await db.collection('active_loans').insertOne(loan);
+      res.json({ _id: result.insertedId, ...loan });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/active-loans/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      delete updates._id;
+      updates.updatedAt = new Date().toISOString();
+
+      // Recalculate expiry date if disbursementDate or loanPeriod changed
+      if (updates.disbursementDate && updates.loanPeriod) {
+        const months = parseInt(updates.loanPeriod);
+        if (!isNaN(months)) {
+          const date = new Date(updates.disbursementDate);
+          date.setMonth(date.getMonth() + months);
+          updates.expiryDate = date.toISOString().split('T')[0];
+        }
+      }
+
+      const result = await db.collection('active_loans').updateOne(
+        { id: id },
+        { $set: updates }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ error: 'Loan not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/active-loans/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.collection('active_loans').deleteOne({ id: id });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Loan not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/active-loans/import', async (req, res) => {
+    try {
+      const { loans } = req.body;
+      if (!Array.isArray(loans) || loans.length === 0) {
+        return res.status(400).json({ error: 'No loans to import' });
+      }
+
+      const now = new Date().toISOString();
+      const results = [];
+
+      for (const loan of loans) {
+        if (!loan.id) loan.id = `loan-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+        if (!loan.createdAt) loan.createdAt = now;
+        if (!loan.updatedAt) loan.updatedAt = now;
+        if (!loan.status) loan.status = 'Active';
+
+        // Calculate expiry date
+        if (loan.disbursementDate && loan.loanPeriod) {
+          const months = parseInt(loan.loanPeriod);
+          if (!isNaN(months)) {
+            const date = new Date(loan.disbursementDate);
+            date.setMonth(date.getMonth() + months);
+            loan.expiryDate = date.toISOString().split('T')[0];
+          }
+        }
+
+        results.push(loan);
+      }
+
+      const result = await db.collection('active_loans').insertMany(results);
+      res.json({ count: result.insertedCount, insertedIds: result.insertedIds });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/active-loans/check/:phone', async (req, res) => {
+    try {
+      const phone = decodeURIComponent(req.params.phone);
+      const today = new Date().toISOString().split('T')[0];
+
+      const loan = await db.collection('active_loans').findOne({
+        phoneNumber: phone,
+        status: 'Active'
+      });
+      res.json(loan);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

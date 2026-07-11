@@ -397,6 +397,7 @@ export interface Guarantor {
   assignmentDate: string;
   expiryDate: string;
   status: 'Active' | 'Expired';
+  assignedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -414,7 +415,22 @@ export interface NonBorrower {
   updatedAt?: string;
 }
 // Add these types after the existing interfaces in src/types.ts
-
+// ==================== ACTIVE LOANS (MINDA) ====================
+export interface ActiveLoan {
+  id: string;
+  name: string; // Customer Name
+  phoneNumber: string;
+  loanType: string; // e.g., MINDA 90, MINDA 60, MINDA 180, MUYA 90
+  amountRequested: number;
+  disbursementDate: string; // ISO date
+  loanOfficer: string;
+  loanPeriod: string; // e.g., "3M", "2M", "6M", "12M"
+  status: 'Active' | 'Expired' | 'Overdue';
+  expiryDate?: string; // Calculated from disbursementDate + loanPeriod
+  addedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 // ==================== EARLY PAYMENT CLOSURE ====================
 export interface EarlyPaymentRecord {
   id: string;

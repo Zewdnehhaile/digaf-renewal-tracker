@@ -18,7 +18,7 @@ import NotificationBell from './components/NotificationBell';
 import ChatRoom from './components/ChatRoom';
 import BlacklistManager from './components/BlacklistManager';
 import GuarantorManager from './components/GuarantorManager';
-import NonBorrowerRegistry from './components/NonBorrowerRegistry';
+import ActiveLoanManager from './components/ActiveLoanManager';
 import {
   Building2,
   LayoutDashboard,
@@ -488,13 +488,12 @@ export default function App() {
       badgeColor: ''
     },
     {
-      id: 'nonborrower',
-      label: 'Non-Borrower Registry',
-      icon: Users,
+      id: 'active-loans',
+      label: 'Active Loans (MINDA)',
+      icon: FileSpreadsheet,
       badge: null,
       badgeColor: ''
     },
-
     ...(isAdminStaff ? [{
       id: 'admin',
       label: 'Admin Console',
@@ -503,7 +502,6 @@ export default function App() {
       badgeColor: ''
     }] : [])
   ];
-
 
 
   const chatItems = [
@@ -1131,7 +1129,7 @@ export default function App() {
 
           {activeTab === 'dashboard' && (
             <DashboardView
-             customers={[...secureCustomersForUser]}
+              customers={[...secureCustomersForUser]}
               logs={logs}
               onNavigate={handleNavigate}
               currentUser={currentUser || undefined}
@@ -1179,8 +1177,8 @@ export default function App() {
             <GuarantorManager currentUser={currentUser!} />
           )}
 
-          {activeTab === 'nonborrower' && (
-            <NonBorrowerRegistry currentUser={currentUser!} />
+          {activeTab === 'active-loans' && (
+            <ActiveLoanManager currentUser={currentUser!} />
           )}
 
           {activeTab === 'admin' && isAdminStaff && (
