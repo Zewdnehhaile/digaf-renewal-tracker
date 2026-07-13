@@ -266,7 +266,7 @@ export default function KanbanBoard({
 
     const allCustomers = propCustomers || customers;
     const allNames = new Set(
-      allCustomers.map(c => c.name.trim().toLowerCase())
+      allCustomers.map(c => c.name.trim()) // Remove .toLowerCase()
     );
 
     // Store status info for duplicate detection
@@ -278,7 +278,7 @@ export default function KanbanBoard({
     if (inputMode === 'single') {
       const [name, phone, notes, ...rest] = lines;
       const nameTrim = name ? name.trim() : '';
-      if (nameTrim && allNames.has(nameTrim.toLowerCase())) {
+      if (nameTrim && allNames.has(nameTrim)) {
         // Find the existing customer
         const existingCustomer = allCustomers.find(c => c.name.trim().toLowerCase() === nameTrim.toLowerCase());
         if (existingCustomer) {
@@ -533,7 +533,7 @@ export default function KanbanBoard({
         onAddLog(customerName, oldStatus as CustomerStatus, targetStatus, activeOfficer);
       }
       soundService.playSuccessChime();
-      alert(`✅ Moved to ${targetStatus}`);
+      alert(`✅ ${customerName} moved to ${targetStatus}`);
 
       // Refresh to update counts and sidebar
 

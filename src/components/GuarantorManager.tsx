@@ -175,15 +175,31 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
   };
 
   // Select guarantor from search results
-  // Select guarantor from search results
   const selectGuarantor = (guarantor: ActiveLoan) => {
-    // Check if this guarantor has overdue loan
-    if (guarantor.status === 'Overdue' || guarantor.status === 'Expired') {
-      // Show warning with confirm option instead of blocking
+    // Check if this guarantor has overdue loan (check by status OR expiryDate)
+    const today = new Date().toISOString().split('T')[0];
+    const isOverdue = guarantor.status === 'Overdue' ||
+      guarantor.status === 'Expired' ||
+      (guarantor.expiryDate && guarantor.expiryDate < today);
+
+    // Check if this person is a customer
+    const isCustomer = guarantor.status === 'Active' ||
+      guarantor.status === 'Overdue' ||
+      guarantor.status === 'Expired';
+
+    // Determine the correct status display
+    let displayStatus = guarantor.status;
+    if (isOverdue && displayStatus === 'Active') {
+      displayStatus = 'Overdue (based on expiry date)';
+    }
+
+    if (isOverdue) {
+      // Show warning with confirm option
       const confirmAdd = confirm(
         `⚠️ WARNING: This person has an OVERDUE loan!\n\n` +
         `Name: ${guarantor.name}\n` +
-        `Status: ${guarantor.status}\n\n` +
+        `Status: ${displayStatus}\n\n` +
+        `They are also a customer in the system.\n\n` +
         `Are you sure you want to add them as a guarantor?\n\n` +
         `⚠️ This action is not recommended for overdue customers.`
       );
@@ -191,20 +207,21 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
       if (!confirmAdd) {
         return; // User cancelled
       }
+    } else if (isCustomer) {
+      // Show info that they are a customer but not overdue
+      const confirmAdd = confirm(
+        `ℹ️ INFO: This person is already a customer.\n\n` +
+        `Name: ${guarantor.name}\n` +
+        `Status: ${guarantor.status}\n\n` +
+        `Are you sure you want to add them as a guarantor?`
+      );
 
-      // User confirmed - proceed with selection
-      setSelectedGuarantor(guarantor);
-      setGuarantorSearch(guarantor.name);
-      setShowGuarantorResults(false);
-
-      setFormData(prev => ({
-        ...prev,
-        guarantorName: guarantor.name,
-        phoneNumber: guarantor.phoneNumber
-      }));
-      return;
+      if (!confirmAdd) {
+        return; // User cancelled
+      }
     }
 
+    // Proceed with selection
     setSelectedGuarantor(guarantor);
     setGuarantorSearch(guarantor.name);
     setShowGuarantorResults(false);
@@ -215,7 +232,6 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
       phoneNumber: guarantor.phoneNumber
     }));
   };
-
   // Handle loan period change
   const handleLoanPeriodChange = (period: '2M' | '3M' | '6M' | '1Y') => {
     setFormData(prev => ({
@@ -252,7 +268,7 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
     return 3 - getGuarantorCount(customerName);
   };
 
-  // Check if guarantor has overdue loan
+  // Check if guarantor has overdue loan (includes expiry date check)
   const checkGuarantorOverdue = async (name: string, phone: string): Promise<boolean> => {
     try {
       const loans = await dbService.getActiveLoans();
@@ -260,28 +276,44 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
         loan.name.toLowerCase() === name.toLowerCase() ||
         loan.phoneNumber === phone
       );
-      return found ? (found.status === 'Overdue' || found.status === 'Expired') : false;
+      if (!found) return false;
+
+      const today = new Date().toISOString().split('T')[0];
+      return found.status === 'Overdue' ||
+        found.status === 'Expired' ||
+        (found.expiryDate && found.expiryDate < today);
     } catch (error) {
       console.error('Error checking guarantor overdue:', error);
       return false;
     }
   };
 
+  // Fetch loan status for all guarantors
   useEffect(() => {
     const fetchLoanStatus = async () => {
       if (guarantors.length === 0) return;
       try {
         const loans = await dbService.getActiveLoans();
         const statusMap = new Map();
+        const today = new Date().toISOString().split('T')[0];
+
         guarantors.forEach((g) => {
+          // Find if this guarantor is also a customer (by name or phone)
           const customerLoan = loans.find((loan: any) =>
             loan.name.toLowerCase() === g.customerName.toLowerCase() ||
-            loan.phoneNumber === g.phoneNumber
+            loan.phoneNumber === g.phoneNumber ||
+            loan.name.toLowerCase() === g.guarantorName.toLowerCase()
           );
+
           if (customerLoan) {
+            // Check if loan is overdue (status OR expiryDate)
+            const isOverdue = customerLoan.status === 'Overdue' ||
+              customerLoan.status === 'Expired' ||
+              (customerLoan.expiryDate && customerLoan.expiryDate < today);
+
             statusMap.set(g.id, {
               hasLoan: true,
-              isOverdue: customerLoan.status === 'Overdue' || customerLoan.status === 'Expired'
+              isOverdue: isOverdue
             });
           } else {
             statusMap.set(g.id, {
@@ -290,6 +322,7 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
             });
           }
         });
+
         setLoanStatusMap(statusMap);
       } catch (error) {
         console.error('Error fetching loan status:', error);
@@ -376,12 +409,19 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
       }
     }
 
-    // Check if guarantor has overdue loan
+    // Check if guarantor has overdue loan (with expiry date check)
     if (formData.guarantorName) {
       const isOverdue = await checkGuarantorOverdue(formData.guarantorName, formData.phoneNumber);
       if (isOverdue) {
-        alert(`⚠️ This person has an OVERDUE loan!\n\nName: ${formData.guarantorName}\n\nPlease resolve the overdue before assigning as a guarantor.`);
-        return;
+        const confirmAdd = confirm(
+          `⚠️ WARNING: This person has an OVERDUE loan!\n\n` +
+          `Name: ${formData.guarantorName}\n\n` +
+          `Are you sure you want to assign them as a guarantor?\n\n` +
+          `⚠️ This action is not recommended for overdue customers.`
+        );
+        if (!confirmAdd) {
+          return;
+        }
       }
     }
 
@@ -792,18 +832,33 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                     {customerResults.map((customer) => {
                       const count = getGuarantorCount(customer.name);
                       const canAdd = count < 3;
+                      const today = new Date().toISOString().split('T')[0];
+                      const isOverdue = customer.status === 'Overdue' ||
+                        customer.status === 'Expired' ||
+                        (customer.expiryDate && customer.expiryDate < today);
+
                       return (
                         <button
                           key={customer.id}
                           onClick={() => selectCustomer(customer)}
-                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${!canAdd ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${isOverdue ? 'bg-amber-50 border-l-4 border-l-amber-500' :
+                            !canAdd ? 'opacity-50' : ''
+                            }`}
                           disabled={!canAdd}
                         >
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-semibold text-slate-800">{customer.name}</p>
                             <p className="text-xs text-slate-500">{customer.phoneNumber}</p>
+                            {isOverdue && (
+                              <p className="text-[10px] text-amber-600 font-bold">⚠️ This customer has an OVERDUE loan</p>
+                            )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right ml-2 flex flex-col items-end gap-0.5">
+                            {isOverdue && (
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                🔴 OVERDUE
+                              </span>
+                            )}
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${count >= 3 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
                               {count}/3 Guarantors
                             </span>
@@ -830,7 +885,7 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                 )}
               </div>
 
-              {/* Guarantor Search Field */}
+              {/* Guarantor Search Field - UPDATED */}
               <div className="md:col-span-2 relative">
                 <label className="text-xs font-bold text-slate-600 block mb-1">Search Guarantor (Person guaranteeing the loan)</label>
                 <div className="relative">
@@ -850,28 +905,51 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                 {showGuarantorResults && guarantorResults.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                     {guarantorResults.map((guarantor) => {
-                      const isOverdue = guarantor.status === 'Overdue' || guarantor.status === 'Expired';
+                      const today = new Date().toISOString().split('T')[0];
+                      const isOverdue = guarantor.status === 'Overdue' ||
+                        guarantor.status === 'Expired' ||
+                        (guarantor.expiryDate && guarantor.expiryDate < today);
+                      const isCustomer = guarantor.status === 'Active' ||
+                        guarantor.status === 'Overdue' ||
+                        guarantor.status === 'Expired';
+
                       return (
                         <button
                           key={guarantor.id}
                           onClick={() => selectGuarantor(guarantor)}
-                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${isOverdue ? 'bg-amber-50 border-l-4 border-l-amber-500' : ''}`}
+                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${isOverdue ? 'bg-amber-50 border-l-4 border-l-amber-500' :
+                            isCustomer ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                            }`}
                         >
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-semibold text-slate-800">{guarantor.name}</p>
                             <p className="text-xs text-slate-500">{guarantor.phoneNumber}</p>
+                            {isCustomer && (
+                              <p className={`text-[10px] font-bold ${isOverdue ? 'text-amber-600' : 'text-blue-600'}`}>
+                                {isOverdue ? '⚠️ Already a customer with OVERDUE loan' : '✅ Already a customer with ACTIVE loan'}
+                              </p>
+                            )}
                             {isOverdue && (
                               <p className="text-[10px] text-amber-600 font-bold">⚠️ Overdue - Add with caution</p>
                             )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right ml-2 flex flex-col items-end gap-0.5">
                             {isOverdue ? (
                               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                ⚠️ OVERDUE
+                                🔴 OVERDUE
+                              </span>
+                            ) : isCustomer ? (
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                🟢 HAS LOAN
                               </span>
                             ) : (
                               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                                 ✅ Available
+                              </span>
+                            )}
+                            {isCustomer && (
+                              <span className="text-[9px] text-slate-400 font-medium">
+                                {isOverdue ? '⚠️ Customer' : 'Customer'}
                               </span>
                             )}
                           </div>
@@ -881,9 +959,22 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                   </div>
                 )}
                 {selectedGuarantor && (
-                  <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-                    <p className="text-xs font-bold text-emerald-700">✅ Selected Guarantor: {selectedGuarantor.name}</p>
-                    <p className="text-xs text-emerald-600">Phone: {selectedGuarantor.phoneNumber}</p>
+                  <div className={`mt-2 p-2 rounded-xl ${selectedGuarantor.status === 'Overdue' || selectedGuarantor.status === 'Expired'
+                    ? 'bg-amber-50 border border-amber-200'
+                    : 'bg-emerald-50 border border-emerald-200'
+                    }`}>
+                    <p className={`text-xs font-bold ${selectedGuarantor.status === 'Overdue' || selectedGuarantor.status === 'Expired'
+                      ? 'text-amber-700'
+                      : 'text-emerald-700'
+                      }`}>
+                      {selectedGuarantor.status === 'Overdue' || selectedGuarantor.status === 'Expired'
+                        ? '⚠️ Selected Guarantor has OVERDUE loan'
+                        : '✅ Selected Guarantor'}
+                    </p>
+                    <p className="text-xs text-slate-600">Phone: {selectedGuarantor.phoneNumber}</p>
+                    {selectedGuarantor.status === 'Overdue' && (
+                      <p className="text-[10px] text-amber-600 font-bold">⚠️ Overdue - Add with caution</p>
+                    )}
                   </div>
                 )}
                 {!selectedGuarantor && guarantorSearch && !searchingGuarantor && guarantorResults.length === 0 && (
@@ -898,7 +989,8 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                 <label className="text-xs font-bold text-slate-600 block mb-1">Guarantor Name *</label>
                 <input
                   type="text"
-                  required value={formData.guarantorName}
+                  required
+                  value={formData.guarantorName}
                   onChange={(e) => setFormData({ ...formData, guarantorName: e.target.value })}
                   placeholder="Enter guarantor name"
                   className="w-full p-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6]"
