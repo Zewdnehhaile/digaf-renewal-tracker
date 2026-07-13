@@ -175,10 +175,33 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
   };
 
   // Select guarantor from search results
+  // Select guarantor from search results
   const selectGuarantor = (guarantor: ActiveLoan) => {
     // Check if this guarantor has overdue loan
     if (guarantor.status === 'Overdue' || guarantor.status === 'Expired') {
-      alert(`⚠️ This person has an OVERDUE loan!\n\nName: ${guarantor.name}\nStatus: ${guarantor.status}\n\nPlease resolve the overdue before assigning as a guarantor.`);
+      // Show warning with confirm option instead of blocking
+      const confirmAdd = confirm(
+        `⚠️ WARNING: This person has an OVERDUE loan!\n\n` +
+        `Name: ${guarantor.name}\n` +
+        `Status: ${guarantor.status}\n\n` +
+        `Are you sure you want to add them as a guarantor?\n\n` +
+        `⚠️ This action is not recommended for overdue customers.`
+      );
+
+      if (!confirmAdd) {
+        return; // User cancelled
+      }
+
+      // User confirmed - proceed with selection
+      setSelectedGuarantor(guarantor);
+      setGuarantorSearch(guarantor.name);
+      setShowGuarantorResults(false);
+
+      setFormData(prev => ({
+        ...prev,
+        guarantorName: guarantor.name,
+        phoneNumber: guarantor.phoneNumber
+      }));
       return;
     }
 
@@ -684,10 +707,16 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
             Expired: {expiredCount}
           </div>
           <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-bold text-blue-600">
-            🟢 With Loan: {Array.from(loanStatusMap.values()).filter(v => v.hasLoan && !v.isOverdue).length}
+            🟢 With Loan: {guarantors.filter(g => {
+              const status = loanStatusMap.get(g.id);
+              return status?.hasLoan === true && status?.isOverdue === false;
+            }).length}
           </div>
           <div className="px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-600">
-            🔴 Overdue: {Array.from(loanStatusMap.values()).filter(v => v.isOverdue).length}
+            🔴 Overdue: {guarantors.filter(g => {
+              const status = loanStatusMap.get(g.id);
+              return status?.isOverdue === true;
+            }).length}
           </div>
           <input
             type="file"
@@ -826,17 +855,19 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                         <button
                           key={guarantor.id}
                           onClick={() => selectGuarantor(guarantor)}
-                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${isOverdue ? 'opacity-50 cursor-not-allowed bg-rose-50' : ''}`}
-                          disabled={isOverdue}
+                          className={`w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center justify-between ${isOverdue ? 'bg-amber-50 border-l-4 border-l-amber-500' : ''}`}
                         >
                           <div>
                             <p className="text-sm font-semibold text-slate-800">{guarantor.name}</p>
                             <p className="text-xs text-slate-500">{guarantor.phoneNumber}</p>
+                            {isOverdue && (
+                              <p className="text-[10px] text-amber-600 font-bold">⚠️ Overdue - Add with caution</p>
+                            )}
                           </div>
                           <div className="text-right">
                             {isOverdue ? (
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
-                                🔴 OVERDUE
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                ⚠️ OVERDUE
                               </span>
                             ) : (
                               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
@@ -867,7 +898,7 @@ export default function GuarantorManager({ currentUser }: GuarantorManagerProps)
                 <label className="text-xs font-bold text-slate-600 block mb-1">Guarantor Name *</label>
                 <input
                   type="text"
-                  required                  value={formData.guarantorName}
+                  required value={formData.guarantorName}
                   onChange={(e) => setFormData({ ...formData, guarantorName: e.target.value })}
                   placeholder="Enter guarantor name"
                   className="w-full p-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#8B5CF6]/20 focus:border-[#8B5CF6]"
